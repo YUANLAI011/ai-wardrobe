@@ -380,8 +380,10 @@ nav button .ic{font-style:normal;transition:transform .2s;display:flex}
       <div class="tagpick" id="seasonPick"></div>
       <label>适合场景（可多选）</label>
       <div class="tagpick" id="sceneTagPick"></div>
-      <label>颜色</label>
+      <label>颜色　<button class="sm ghost" style="display:inline-flex;align-items:center;padding:3px 10px;font-size:12px" onclick="toggleEyedropper()">🎯 从照片取色</button></label>
       <div class="tagpick" id="colorPick"></div>
+      <canvas id="eyeCanvas" style="display:none;width:100%;border-radius:10px;cursor:crosshair;margin-top:6px" onclick="eyePick(event)"></canvas>
+      <p class="hint" id="eyeHint" style="display:none">点一下照片上衣服主体颜色的位置（借鉴 UltimaRobe 取色吸管）</p>
       <div style="margin-top:16px;display:flex;gap:8px">
         <button style="flex:1" onclick="saveItem()">保存入库</button>
         <button class="ghost" style="flex:0.6" onclick="closeAdd()">取消</button>
@@ -605,6 +607,64 @@ function normColor(c){
   if(COLORS.includes(stripped))return stripped;
   return null;
 }
+/* ===== 借鉴 UltimaRobe color-eyedropper：点照片任意位置取色，HSL 感知距离映射到标签色 ===== */
+const COLOR_HEX={黑:"#1F1F1F",白:"#F7F5F0",米:"#EAE3D4",灰:"#A3A7AB",驼:"#C9A87C",卡其:"#B7A477",棕:"#8A5A33",蓝:"#6E8FB5",藏青:"#2E3F5C",粉:"#E8B4C0",紫:"#9B7FC0",红:"#C0392B",酒红:"#7B2230",橙:"#E07B39",黄:"#E4C44E",绿:"#6B8F5E",墨绿:"#35543F"};
+let eyeOn=false;
+function toggleEyedropper(){
+  if(!draft.photo)return toast("先拍照或选择图片");
+  eyeOn=!eyeOn;
+  const cv=document.getElementById("eyeCanvas"),hint=document.getElementById("eyeHint");
+  if(!eyeOn){cv.style.display="none";hint.style.display="none";return}
+  const img=new Image();
+  img.onload=()=>{
+    cv.width=img.width;cv.height=img.height;
+    cv.getContext("2d").drawImage(img,0,0);
+    cv.style.display="block";hint.style.display="block";
+  };
+  img.src=draft.photo;
+}
+function rgbToHsl2(r,g,b){
+  r/=255;g/=255;b/=255;
+  const max=Math.max(r,g,b),min=Math.min(r,g,b),l=(max+min)/2,d=max-min;
+  let h=0;
+  const s=l===0||d===0?0:d/(1-Math.abs(2*l-1));
+  if(d!==0){
+    if(max===r)h=((g-b)/d)%6;else if(max===g)h=(b-r)/d+2;else h=(r-g)/d+4;
+    h=Math.round(h*60);if(h<0)h+=360;
+  }
+  return {h,s,l};
+}
+/* HSL 感知最近色：色相距离按饱和度加权（灰阶层不参与色相比较），借鉴 UltimaRobe colorDistance */
+function nearestColorTag(r,g,b){
+  const a=rgbToHsl2(r,g,b);
+  let best="灰",bd=1e9;
+  for(const [tag,hex] of Object.entries(COLOR_HEX)){
+    const t=hexToRgb(hex),th=rgbToHsl2(t.r,t.g,t.b);
+    let hd=Math.abs(a.h-th.h);if(hd>180)hd=360-hd;
+    const d=Math.sqrt((r-t.r)**2+(g-t.g)**2+(b-t.b)**2)+Math.abs(a.s-th.s)*100+hd*Math.min(a.s,th.s)*2;
+    if(d<bd){bd=d;best=tag}
+  }
+  return best;
+}
+function hexToRgb(hex){
+  return {r:parseInt(hex.slice(1,3),16),g:parseInt(hex.slice(3,5),16),b:parseInt(hex.slice(5,7),16)};
+}
+function eyePick(ev){
+  const cv=document.getElementById("eyeCanvas");
+  const rect=cv.getBoundingClientRect();
+  const x=Math.round((ev.clientX-rect.left)*cv.width/rect.width);
+  const y=Math.round((ev.clientY-rect.top)*cv.height/rect.height);
+  const sx=Math.max(0,Math.min(cv.width-5,x-2)),sy=Math.max(0,Math.min(cv.height-5,y-2));
+  const d=cv.getContext("2d").getImageData(sx,sy,5,5).data;
+  let r=0,g=0,b=0,n=0;
+  for(let i=0;i<d.length;i+=4){if(d[i+3]<120)continue;r+=d[i];g+=d[i+1];b+=d[i+2];n++}
+  if(!n)return;
+  const tag=nearestColorTag(Math.round(r/n),Math.round(g/n),Math.round(b/n));
+  draft.colors=[tag];
+  renderPick("colorPick",COLORS,"colors");
+  toast("已取色："+(COLOR_NAME[tag]||tag));
+  toggleEyedropper();   // 取完自动收起
+}
 /* 本地主色提取 v2：先估计背景色，剔除背景后按标签桶投票，比整图平均准得多 */
 function dominantColorTag(dataURL,cb){
   const img=new Image();
@@ -728,10 +788,51 @@ function openDetail(id){
       ${dirty?'<button style="flex:1" onclick="doWash(\''+i.id+'\')">🫧 标记已清洗</button>':''}
       <button class="ghost" style="flex:0.6" onclick="delItem(\''+i.id+'\')">删除</button>
       <button class="ghost" style="flex:0.6" onclick="closeDetail()">关闭</button>
-    </div>`;
+    </div>
+    <button class="ghost" style="width:100%;margin-top:8px" onclick="aiPairFor(\''+i.id+'\')">👗 AI 帮我配这件（从衣橱找最佳组合）</button>
+    <div id="pairOut"></div>`;
   document.getElementById("detailMask").classList.add("open");
 }
 function closeDetail(){document.getElementById("detailMask").classList.remove("open")}
+/* ===== 借鉴 UltimaRobe pairings（item_pairing.txt）：指定单品 → AI 从衣橱组 3 套含它的搭配 ===== */
+const SLOT={上衣:"top",下装:"bottom",连衣裙:"one",外套:"outer",鞋:"shoe",配饰:"acc"};
+async function aiPairFor(id){
+  const src=DB.items.find(x=>x.id===id);if(!src)return;
+  const out=document.getElementById("pairOut");if(!out)return;
+  if(!getKey()){out.innerHTML='<p class="hint" style="margin-top:8px">需先在「我的」页配置 DeepSeek Key</p>';return}
+  out.innerHTML='<p class="hint" style="margin-top:8px">🤖 正在从你的衣橱里找和它最搭的组合…</p>';
+  /* 槽位冲突预过滤：同槽位不出现在同一套，连衣裙与分体上下装互斥（借鉴 item_pairing.txt 槽位规则） */
+  const slot=SLOT[src.type];
+  const cands=DB.items.filter(i=>clean(i)&&i.id!==src.id&&SLOT[i.type]!==slot
+    &&!(slot==="one"&&["top","bottom"].includes(SLOT[i.type]))
+    &&!(slot==="top"&&SLOT[i.type]==="one")&&!(slot==="bottom"&&SLOT[i.type]==="one"))
+    .map(i=>({i,s:itemScore(i,"休闲")})).sort((a,b)=>b.s-a.s).slice(0,15);
+  if(!cands.length){out.innerHTML='<p class="hint" style="margin-top:8px">衣橱里还没有能和它组合的其他衣物</p>';return}
+  const lines=cands.map((c,idx)=>`[${idx+2}] ${c.i.type}「${c.i.name}」颜色:${(c.i.colors||[]).join("/")} 风格:${c.i.style||"-"} 正式度:${c.i.formality} 场景:${c.i.scenes.join("/")}`).join("\n");
+  const sys=`你是时尚造型师。为用户衣橱里的指定单品生成 3 套完整搭配组合。
+源单品（每套都必须包含）：[1] ${src.type}「${src.name}」颜色:${(src.colors||[]).join("/")} 风格:${src.style||"-"} 正式度:${src.formality}
+候选单品（只能从中选择，编号从 2 开始）：
+${lines}
+规则：
+- 每套 = 1上衣+1下装+1鞋，或 1连衣裙+1鞋；天冷可加外套；可加1-2个配饰点睛
+- 不得同槽位重复（两件上衣/两条下装不行；连衣裙不可与上衣或下装同套）
+- 3 套在风格或场合上必须明显不同
+- 每套说明为什么这些单品与源单品相配（色彩和谐/风格统一/正式度匹配）
+只返回 JSON：{"pairings":[{"items":[1,2,...],"headline":"5字内标题","why":"45字内搭配逻辑","tip":"一条具体穿法建议"}]}`;
+  try{
+    const txt=await dsChat([{role:"system",content:sys},{role:"user",content:"开始生成"}],null,700,0.6);
+    const o=parseLooseJSON(txt);
+    const cards=(o.pairings||[]).map(p=>{
+      const set=[src,...(p.items||[]).slice(1).map(n=>cands[n-2]&&cands[n-2].i).filter(Boolean)];
+      return `<div style="border:1px solid var(--border);border-radius:12px;padding:10px;margin-top:8px">
+        <b>${p.headline||"搭配建议"}</b>
+        <p style="font-size:13px;margin:6px 0 4px">${set.map(i=>i.icon+" "+i.name).join(" + ")}</p>
+        <p class="hint" style="margin:4px 0">💡 ${p.why||""}</p>
+        ${p.tip?`<p class="hint" style="margin:4px 0">✨ ${p.tip}</p>`:""}
+      </div>`}).join("");
+    out.innerHTML=cards||'<p class="hint" style="margin-top:8px">没有生成有效组合，再试一次吧</p>';
+  }catch(e){out.innerHTML='<p class="hint" style="margin-top:8px">⚠️ 配对失败：'+e.message+'</p>'}
+}
 function delItem(id){DB.items=DB.items.filter(x=>x.id!==id);save();closeDetail();renderGrid();toast("已删除")}
 function doWash(id){const i=DB.items.find(x=>x.id===id);i.wearCount=0;save();closeDetail();renderGrid();toast("已清洗，焕然一新 ✨")}
 
@@ -1238,10 +1339,18 @@ function renderMe(){
   if(noC.length)rows.push(`近期不喜欢：${noC.map(([c])=>c+"色系").join("、")}`);
   if(!rows.length)learned.innerHTML='<div class="empty">还没有足够反馈，多给搭配点赞/点踩吧</div>';
   else learned.innerHTML=rows.map(r=>`<div class="insrow"><span>${r}</span></div>`).join("");
-  /* 洞察 */
+  /* 洞察（借鉴 UltimaRobe analytics：利用率/穿着排行/色彩分布/闲置/清洗/缺口） */
   const ins=[];
-  const worn=[...DB.items].sort((a,b)=>b.wearCount-a.wearCount)[0];
-  if(worn&&worn.wearCount>0)ins.push(["最常穿",`${worn.name}（${worn.wearCount} 次）`]);
+  const total=DB.items.length;
+  const used=DB.items.filter(i=>i.wearCount>0).length;
+  if(total)ins.push(["衣橱利用率",`${used}/${total} 件穿过（${Math.round(used/total*100)}%）`]);
+  const top3=[...DB.items].sort((a,b)=>b.wearCount-a.wearCount).filter(i=>i.wearCount>0).slice(0,3);
+  if(top3.length)ins.push(["穿着排行",top3.map(i=>`${i.name}×${i.wearCount}`).join("、")]);
+  /* 色彩分布：用真实标签色画迷你条形（借鉴 UltimaRobe color distribution） */
+  const cc={};DB.items.forEach(i=>(i.colors||[]).forEach(c=>cc[c]=(cc[c]||0)+1));
+  const ctop=Object.entries(cc).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  const maxc=ctop.length?ctop[0][1]:1;
+  if(ctop.length)ins.push(["色彩分布",ctop.map(([c,n])=>`<span style="display:inline-block;vertical-align:middle;width:${Math.round(n/maxc*40)+10}px;height:10px;border-radius:5px;background:${COLOR_HEX[c]||"#999"};margin-right:3px" title="${COLOR_NAME[c]||c}×${n}"></span><span style="margin-right:10px">${COLOR_NAME[c]||c}×${n}</span>`).join("")]);
   const idle=DB.items.filter(i=>i.wearCount===0);
   if(idle.length)ins.push(["待激活",`${idle.length} 件从未穿过：${idle.slice(0,2).map(i=>i.name).join("、")}${idle.length>2?" 等":""}`]);
   const overdue=DB.items.filter(i=>i.wearCount>=i.threshold);
