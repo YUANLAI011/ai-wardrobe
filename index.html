@@ -117,7 +117,8 @@ nav button .ic{font-style:normal;transition:transform .2s;display:flex}
   .wx .big{font-family:var(--serif);font-size:46px;font-weight:600;line-height:1}
   .wx .desc{font-size:13px;color:var(--muted)}
   .wxsim{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
-  .wxsim button{background:rgba(255,255,255,.75);color:var(--ink);border:1px solid var(--border);font-size:11px;padding:5px 10px;border-radius:99px;box-shadow:none}
+  .wxsim button,.wxsim .wxchip{background:rgba(255,255,255,.75);color:var(--ink);border:1px solid var(--border);font-size:11px;padding:5px 10px;border-radius:99px;box-shadow:none}
+  .wxsim .wxchip{cursor:default;font-weight:600}
   .wxsim button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 
   /* ===== 穿搭方案 ===== */
@@ -863,14 +864,21 @@ function renderWxSim(){
   document.getElementById("wxTemp").textContent=wx.temp+"°";
   const swing=wx.tmax!=null&&wx.tmin!=null?wx.tmax-wx.tmin:null;
   document.getElementById("wxDesc").textContent=(wx.city?wx.city+" · ":"")+wx.desc
-    +(wx.feels!=null&&Math.abs(wx.feels-wx.temp)>=2?` · 体感${wx.feels}°`:"")
     +(swing!=null&&swing>=8?` · ${wx.tmin}~${wx.tmax}° 温差大`:"")
     +(wx.rain?" · 有降水":"")+(wx.wind>=17?" · 风大":"");
   document.getElementById("wxSrc").textContent="来源："+wx.src+(wx.lastUp?" · 更新于 "+wx.lastUp:" · 每30分钟自动刷新");
   document.getElementById("wxLoc").textContent=wxLoc?"📍 "+wxLoc.name+" · 手动城市（输入框可重新搜索）":"📍 正在自动定位（GPS/IP）· 也可在下方手动搜索城市";
-  document.getElementById("wxsim").innerHTML=WX_PRESET.map((p,idx)=>
-    `<button class="${wx.src==="手动模拟"&&wx.temp===p.t&&wx.rain===p.rain?"on":""}" onclick="wx={temp:${p.t},desc:'${p.d}',rain:${p.rain},wind:${p.wind},src:'手动模拟'};renderWxSim();genOutfit();">${p.label}</button>`).join("")
-    +'<button onclick="fetchWeather()">🔄 立即刷新</button>';
+  /* 当前地区真实天气指标条（体感/湿度/风/今日区间），模拟器收进折叠调试面板 */
+  const chips=[];
+  chips.push(`<span class="wxchip">🌡 体感 ${wx.feels!=null?wx.feels:wx.temp}°</span>`);
+  if(wx.hum!=null)chips.push(`<span class="wxchip">💧 湿度 ${wx.hum}%</span>`);
+  chips.push(`<span class="wxchip">💨 风 ${wx.wind} km/h</span>`);
+  if(wx.tmax!=null&&wx.tmin!=null)chips.push(`<span class="wxchip">今日 ${wx.tmin}~${wx.tmax}°</span>`);
+  document.getElementById("wxsim").innerHTML=chips.join("")
+    +'<button onclick="fetchWeather()">🔄 立即刷新</button>'
+    +'<details style="flex-basis:100%"><summary style="font-size:11px;color:var(--muted);cursor:pointer;margin-top:2px">模拟天气（调试用）</summary>'
+    +'<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">'+WX_PRESET.map((p,idx)=>
+    `<button class="${wx.src==="手动模拟"&&wx.temp===p.t&&wx.rain===p.rain?"on":""}" onclick="wx={temp:${p.t},desc:'${p.d}',rain:${p.rain},wind:${p.wind},src:'手动模拟'};renderWxSim();genOutfit();">${p.label}</button>`).join("")+'</div></details>';
   const tips=[];
   if(wx.rain)tips.push("☔ 有降水：AI 已避免浅色鞋，外套必搭");
   if(!wx.rain&&wx.pop>=50)tips.push("🌧 降水概率 "+wx.pop+"%：外套建议选防水/易穿脱款");
@@ -898,7 +906,7 @@ async function loadWxAt(la,lo,cityName,src){
       if(rn.code==="200"&&rn.now){
         const n=rn.now,d=(rd.code==="200"&&rd.daily)?rd.daily[0]:{};
         wx={temp:Math.round(+n.temp),desc:n.text,rain:(+n.precip||0)>0||(d.text||"").includes("雨")||(d.text||"").includes("雪"),
-          wind:Math.round(+n.windSpeed||0),src:src,feels:Math.round(+n.feelsLike||n.temp),
+          wind:Math.round(+n.windSpeed||0),src:src,feels:Math.round(+n.feelsLike||n.temp),hum:n.humidity!=null?Math.round(+n.humidity):null,
           tmax:d.tempMax!=null?Math.round(+d.tempMax):null,tmin:d.tempMin!=null?Math.round(+d.tempMin):null,
           pop:d.precipProb?+d.precipProb:0,city:cityName||wx.city,lastUp:new Date().toTimeString().slice(0,5)};
         renderWxSim();return;
@@ -910,13 +918,14 @@ async function loadWxAt(la,lo,cityName,src){
   }
   /* Open-Meteo 路径：免 Key，全球任意坐标 */
   try{
-    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m,apparent_temperature,weather_code,precipitation,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1`);
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,precipitation,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1`);
     const j=await r.json(),c=j.current,dy=j.daily||{};
     if(!c)throw new Error("Open-Meteo 返回异常");
     const codes={0:"晴",1:"多云",2:"多云",3:"阴",45:"雾",48:"雾",51:"小雨",53:"小雨",55:"小雨",61:"雨",63:"雨",65:"大雨",66:"冻雨",67:"冻雨",71:"小雪",73:"雪",75:"大雪",77:"雪",80:"阵雨",81:"阵雨",82:"大雨",85:"阵雪",86:"阵雪",95:"雷雨",96:"雷雨",99:"雷雨"};
     wx={temp:Math.round(c.temperature_2m),desc:codes[c.weather_code]||"多云",
       rain:(c.precipitation||0)>0.2,wind:Math.round(c.wind_speed_10m),src:src,
       feels:Math.round(c.apparent_temperature!=null?c.apparent_temperature:c.temperature_2m),
+      hum:c.relative_humidity_2m!=null?Math.round(c.relative_humidity_2m):null,
       tmax:dy.temperature_2m_max?Math.round(dy.temperature_2m_max[0]):null,
       tmin:dy.temperature_2m_min?Math.round(dy.temperature_2m_min[0]):null,
       pop:dy.precipitation_probability_max?(dy.precipitation_probability_max[0]||0):0,

@@ -1,5 +1,5 @@
 /* AI 衣橱 Service Worker：预缓存核心资源，运行时缓存同源 GET 请求 */
-const CACHE = "ai-wardrobe-v4";
+const CACHE = "ai-wardrobe-v5";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", e => {
