@@ -403,15 +403,17 @@ const KEY="aiwardrobe_v2";
 const TYPES=["上衣","下装","连衣裙","外套","鞋","配饰"];
 const SEASONS=["春","夏","秋","冬"];
 const SCENES=["通勤","约会","休闲","运动","正式"];
-const COLORS=["黑","白","米","灰","蓝","粉","棕","红","绿"];
+const COLORS=["黑","白","米","灰","驼","卡其","棕","蓝","藏青","粉","紫","红","酒红","橙","黄","绿","墨绿"];
 const STYLES=["简约","甜美","酷飒","知性","运动风","复古"];
 const BODIES=["梨形","苹果形","沙漏形","直筒形","倒三角"];
 const FACES=["圆脸","鹅蛋脸","方脸","心形脸","长脸"];
 const TYPE_ICON={"上衣":"👚","下装":"👖","连衣裙":"👗","外套":"🧥","鞋":"👟","配饰":"🧣"};
 const TYPE_WASH={"上衣":2,"下装":4,"连衣裙":3,"外套":10,"鞋":30,"配饰":8};
-const NEUTRAL=["黑","白","米","灰","棕"];
-const HUE={黑:-1,白:-1,米:40,灰:-1,蓝:220,粉:340,棕:30,红:0,绿:120};
-const COLOR_NAME={黑:"纯黑",白:"象牙白",米:"燕麦米",灰:"高级灰",蓝:"雾霾蓝",粉:"樱花粉",棕:"焦糖棕",红:"复古红",绿:"橄榄绿"};
+const NEUTRAL=["黑","白","米","灰","驼","卡其","棕"];
+const HUE={黑:-1,白:-1,米:40,灰:-1,驼:35,卡其:60,棕:30,蓝:220,藏青:225,粉:340,紫:280,红:0,酒红:350,橙:25,黄:55,绿:120,墨绿:150};
+const COLOR_NAME={黑:"纯黑",白:"象牙白",米:"燕麦米",灰:"高级灰",驼:"燕麦驼",卡其:"卡其",棕:"焦糖棕",蓝:"雾霾蓝",藏青:"藏青",粉:"樱花粉",紫:"雾紫",红:"复古红",酒红:"勃艮第酒红",橙:"落日橙",黄:"姜黄",绿:"橄榄绿",墨绿:"墨绿"};
+/* AI 颜色输出别名归一化：模型说「藏蓝/海军蓝」也能落进标签体系，不再被丢弃 */
+const COLOR_ALIAS={"米白":"米","奶油":"米","奶油白":"米","杏色":"米","香槟":"米","燕麦":"米","乳白":"米","象牙":"白","天蓝":"蓝","浅蓝":"蓝","宝蓝":"蓝","湖蓝":"蓝","克莱因蓝":"蓝","雾蓝":"蓝","藏蓝":"藏青","海军蓝":"藏青","深蓝":"藏青","普鲁士蓝":"藏青","深灰":"灰","浅灰":"灰","炭灰":"灰","烟灰":"灰","银灰":"灰","浅驼":"驼","驼色":"驼","焦糖":"棕","咖啡":"棕","咖啡色":"棕","深棕":"棕","浅棕":"棕","摩卡":"棕","可可":"棕","巧克力":"棕","土色":"棕","军绿":"墨绿","草绿":"绿","薄荷绿":"绿","抹茶":"绿","牛油果":"绿","苔绿":"墨绿","森林绿":"墨绿","正红":"红","大红":"红","砖红":"红","玫红":"红","莓红":"酒红","枫叶红":"酒红","枣红":"酒红","波尔多":"酒红","酒红色":"酒红","姜黄":"黄","柠檬黄":"黄","鹅黄":"黄","芥末":"黄","芥末黄":"黄","橘":"橙","橘色":"橙","橘子":"橙","南瓜":"橙","珊瑚":"橙","珊瑚橙":"橙","香芋紫":"紫","薰衣草":"紫","丁香紫":"紫","葡萄紫":"紫","深紫":"紫","浅紫":"紫","藕粉":"粉","干枯玫瑰":"粉","蜜桃":"粉","蜜桃粉":"粉","玫粉":"粉"};
 /* 正式度体系（借鉴 wardrowbe）：场合→可接受正式度，错一档 0.6 分，错两档 0.2 */
 const FORMALITY=["正式","日常","运动"];
 const SCENE_FORMALITY={"通勤":["正式","日常"],"正式":["正式"],"约会":["日常","正式"],"休闲":["日常"],"运动":["运动"]};
@@ -498,17 +500,46 @@ function openAdd(){
   renderPick("sceneTagPick",SCENES,"scenes");renderPick("colorPick",COLORS,"colors");
 }
 function closeAdd(){document.getElementById("addMask").classList.remove("open")}
-document.getElementById("fileInput").addEventListener("change",e=>{
+document.getElementById("fileInput").addEventListener("change",async e=>{
   const f=e.target.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=()=>{
-    draft.photo=r.result;
-    const pv=document.getElementById("photoPrev");pv.src=draft.photo;pv.style.display="block";
-    document.getElementById("photoHint").style.display="none";
-    aiTagPhoto();
-  };
-  r.readAsDataURL(f);e.target.value="";
+  e.target.value="";
+  /* 降采样到 640px JPEG：请求体小 20 倍以上，识别更快更稳，也避免 localStorage 被原图撑爆 */
+  try{draft.photo=await fileToData(f,640,0.82)}
+  catch(_){/* 降采样失败（罕见解码问题）→ 回退读取原图 */
+    draft.photo=await new Promise((res,rej)=>{const fr2=new FileReader();fr2.onload=()=>res(fr2.result);fr2.onerror=rej;fr2.readAsDataURL(f)});
+  }
+  const pv=document.getElementById("photoPrev");pv.src=draft.photo;pv.style.display="block";
+  document.getElementById("photoHint").style.display="none";
+  aiTagPhoto();
 });
+/* ===== 图片处理工具：Canvas 降采样（修复原图过大导致视觉接口失败） ===== */
+function fileToData(f,maxSide,q){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onerror=()=>rej(new Error("读取文件失败"));
+    fr.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>rej(new Error("图片解码失败"));
+      img.onload=()=>{
+        const scale=Math.min(1,maxSide/Math.max(img.width,img.height));
+        const c=document.createElement("canvas");
+        c.width=Math.max(1,Math.round(img.width*scale));
+        c.height=Math.max(1,Math.round(img.height*scale));
+        const ctx=c.getContext("2d");ctx.drawImage(img,0,0,c.width,c.height);
+        res(c.toDataURL("image/jpeg",q));
+      };
+      img.src=fr.result;
+    };
+    fr.readAsDataURL(f);
+  });
+}
+/* 宽松 JSON 解析：剥掉 markdown 围栏与前后杂文，防模型偶尔的话痨导致解析崩 */
+function parseLooseJSON(txt){
+  let t=txt.replace(/```(json)?/gi,"").trim();
+  const a=t.indexOf("{"),b=t.lastIndexOf("}");
+  if(a<0||b<=a)throw new Error("模型未返回JSON");
+  return JSON.parse(t.slice(a,b+1));
+}
 /* 拍照识别调度：有 Key 用 DeepSeek 视觉（deepseek-flash），无 Key 回退本地取色 */
 function aiTagPhoto(){
   const box=document.getElementById("aiSteps");box.style.display="block";
@@ -521,25 +552,43 @@ function aiTagPhoto(){
   if(getKey()){aiVisionTag();return}
   aiTagLocal();
 }
-/* DeepSeek 视觉识别：真实调用 deepseek-flash，支持 base64 图片输入 */
+/* DeepSeek 视觉识别：细分类型+消歧规则（借鉴 wardrowbe clothing_analysis.txt），颜色经别名归一化，并用本地像素取色交叉仲裁 */
 function aiVisionTag(){
-  const sys='你是衣物标签专家。识别图片中的服饰，只返回JSON：{"type":"从 上衣/下装/连衣裙/外套/鞋/配饰 中选一个","seasons":["从 春/夏/秋/冬 选1-3个"],"scenes":["从 通勤/约会/休闲/运动/正式 选1-2个"],"colors":["从 黑/白/米/灰/蓝/粉/棕/红/绿 选1-2个主色"],"style":"从 简约/甜美/酷飒/知性/运动风/复古 中选一个最接近的","formality":"从 正式/日常/运动 中选一个（西服衬衫礼服=正式，卫衣运动服=运动，其余=日常）","name":"给这件衣服起个可爱的中文昵称，不超过6个字"}';
-  dsChat([{role:"user",content:[
+  const sys=`你是衣物标签专家。识别图片中的【主要】服饰（忽略衣架、背景、人物其他部位），只返回JSON，不要多余文字。
+type 从 ["上衣","下装","连衣裙","外套","鞋","配饰"] 中选一个。归大类规则：
+- T恤/衬衫/卫衣/毛衣/针织衫/背心/吊带/POLO/马甲 → 上衣；连帽卫衣也算上衣
+- 裤子/牛仔裤/短裤/半身裙/打底裤/阔腿裤/西裤 → 下装
+- 羽绒服、大衣、西装外套、夹克、风衣、厚外套 → 外套
+- 连身的裙子 → 连衣裙；连体裤 → 下装
+- 运动鞋/板鞋/小白鞋/老爹鞋/拖鞋/高跟鞋/凉鞋/靴子 → 鞋
+- 包/帽子/围巾/腰带/手表/首饰/袜子 → 配饰
+colors 从 ["黑","白","米","灰","驼","卡其","棕","蓝","藏青","粉","紫","红","酒红","橙","黄","绿","墨绿"] 中选1-2个主色（按面积大的在前）。按真实观感选：发灰的蓝就说蓝，偏暖浅棕说驼或卡其，深蓝但仍有蓝感选藏青，深棕红选酒红。
+其余字段：seasons 从["春","夏","秋","冬"]选1-3个；scenes 从["通勤","约会","休闲","运动","正式"]选1-2个；style 从["简约","甜美","酷飒","知性","运动风","复古"]选最接近的1个；formality 从["正式","日常","运动"]选1个；name 是不超过6字的中文昵称。
+只返回：{"type":"...","seasons":[],"scenes":[],"colors":[],"style":"...","formality":"...","name":"..."}`;
+  const aiCall=dsChat([{role:"user",content:[
     {type:"text",text:sys},
     {type:"image_url",image_url:{url:draft.photo}}
-  ]},"deepseek-flash"]).then(txt=>{
-    const o=JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+  ]},"deepseek-flash",500,0.3]);
+  /* 本地像素取色与 AI 并行跑，双源仲裁颜色 */
+  const localCall=new Promise(res=>dominantColorTag(draft.photo,res));
+  Promise.all([aiCall,localCall]).then(([txt,localCol])=>{
+    const o=parseLooseJSON(txt);
     draft.type=TYPES.includes(o.type)?o.type:"上衣";
     draft.seasons=(o.seasons||[]).filter(s=>SEASONS.includes(s)).slice(0,3);if(!draft.seasons.length)draft.seasons=["春","秋"];
     draft.scenes=(o.scenes||[]).filter(s=>SCENES.includes(s)).slice(0,2);if(!draft.scenes.length)draft.scenes=["休闲"];
-    draft.colors=(o.colors||[]).filter(c=>COLORS.includes(c)).slice(0,2);if(!draft.colors.length)draft.colors=["灰"];
+    /* 颜色仲裁：AI 输出→别名归一化→校验；本地取色兜底，意见不同时并列展示 */
+    const aiCols=(o.colors||[]).map(c=>normColor(c)).filter(Boolean).slice(0,2);
+    let cols=[...new Set([...aiCols,localCol].filter(Boolean))].slice(0,2);
+    if(!cols.length)cols=["灰"];
+    draft.colors=cols;
     draft.style=STYLES.includes(o.style)?o.style:"";
     draft.formality=FORMALITY.includes(o.formality)?o.formality:"日常";
     if(o.name&&!document.getElementById("fName").value)document.getElementById("fName").value=o.name;
     renderPick("typePick",TYPES,"type");renderPick("seasonPick",SEASONS,"seasons");
     renderPick("sceneTagPick",SCENES,"scenes");renderPick("colorPick",COLORS,"colors");
+    const agree=aiCols[0]&&aiCols[0]===localCol;
     document.getElementById("aiLine2").style.display="block";
-    document.getElementById("aiLine2").textContent=`🤖 DeepSeek 识别完成：${draft.type} · 主色 ${(draft.colors||[]).map(c=>COLOR_NAME[c]||c).join("/")} · 风格 ${draft.style||"未定"} → 已填好标签，并建议昵称「${o.name||""}」`;
+    document.getElementById("aiLine2").textContent=`🤖 DeepSeek 识别完成：${draft.type} · 主色 ${(draft.colors||[]).map(c=>COLOR_NAME[c]||c).join("/")}${aiCols[0]&&!agree?`（AI:${COLOR_NAME[aiCols[0]]||aiCols[0]} + 像素取色:${COLOR_NAME[localCol]||localCol} 双源仲裁）`:""} · 风格 ${draft.style||"未定"} → 已填好标签，并建议昵称「${o.name||""}」`;
     document.getElementById("aiLine3").style.display="block";
   }).catch(e=>{
     document.getElementById("aiLine2").style.display="block";
@@ -547,29 +596,73 @@ function aiVisionTag(){
     aiTagLocal();
   });
 }
-/* 本地回退：真实主色提取 Canvas 采样 → HSL → 归类到标签色 */
-function aiTagLocal(){
+/* AI 颜色词归一化：先查别名表，再查标签表，都没有返回 null */
+function normColor(c){
+  const k=String(c||"").trim().replace(/色$/,"");
+  if(COLORS.includes(k))return k;
+  if(COLOR_ALIAS[k])return COLOR_ALIAS[k];
+  const stripped=k.replace(/深|浅|正/,"");
+  if(COLORS.includes(stripped))return stripped;
+  return null;
+}
+/* 本地主色提取 v2：先估计背景色，剔除背景后按标签桶投票，比整图平均准得多 */
+function dominantColorTag(dataURL,cb){
   const img=new Image();
   img.onload=()=>{
-    const c=document.createElement("canvas");c.width=c.height=48;
-    const ctx=c.getContext("2d");ctx.drawImage(img,0,0,48,48);
-    const d=ctx.getImageData(0,0,48,48).data;
-    let r=0,g=0,b=0,n=0;
-    for(let i=0;i<d.length;i+=4){if(d[i+3]<120)continue;r+=d[i];g+=d[i+1];b+=d[i+2];n++}
-    r/=n||1;g/=n||1;b/=n||1;
-    const {tag:col,l:lum}=hslToTag(r,g,b);
-    setTimeout(()=>{
-      draft.colors=[col];
-      draft.seasons=lum<=0.35?["秋","冬"]:(lum>=0.7?["春","夏"]:["春","秋"]);
-      if(!draft.type)draft.type="上衣";
-      document.getElementById("aiLine2").style.display="block";
-      document.getElementById("aiLine2").textContent=`🤖 主色识别完成：${COLOR_NAME[col]}（已自动填入颜色标签）· 明度推断季节：${draft.seasons.join("/")}`;
-      renderPick("typePick",TYPES,"type");renderPick("seasonPick",SEASONS,"seasons");
-      renderPick("sceneTagPick",SCENES,"scenes");renderPick("colorPick",COLORS,"colors");
-      document.getElementById("aiLine3").style.display="block";
-    },600);
+    const S=64,c=document.createElement("canvas");c.width=c.height=S;
+    const ctx=c.getContext("2d");ctx.drawImage(img,0,0,S,S);
+    const d=ctx.getImageData(0,0,S,S).data;
+    /* 1) 用最外圈 2px 估计背景色 */
+    let br=0,bg=0,bb=0,bn=0;
+    for(let y=0;y<S;y++)for(let x=0;x<S;x++){
+      if(x>1&&x<S-2&&y>1&&y<S-2)continue;
+      const i=(y*S+x)*4;if(d[i+3]<120)continue;br+=d[i];bg+=d[i+1];bb+=d[i+2];bn++;
+    }
+    br/=bn||1;bg/=bn||1;bb/=bn||1;
+    /* 2) 内部区域：剔除接近背景色的像素，按 hslToTag 分桶投票 */
+    const votes={};let n=0;
+    for(let y=3;y<S-3;y++)for(let x=3;x<S-3;x++){
+      const i=(y*S+x)*4;if(d[i+3]<120)continue;
+      const r=d[i],g=d[i+1],b=d[i+2];
+      const dist=(r-br)*(r-br)+(g-bg)*(g-bg)+(b-bb)*(b-bb);
+      if(dist<3600&&n>80)continue;   // 疑似背景（留保底样本量）
+      const {tag}=hslToTag(r,g,b);
+      votes[tag]=(votes[tag]||0)+1;n++;
+    }
+    if(!n){cb("灰");return}
+    cb(Object.entries(votes).sort((a,b)=>b[1]-a[1])[0][0]);
   };
-  img.src=draft.photo;
+  img.onerror=()=>cb("灰");
+  img.src=dataURL;
+}
+/* 本地回退：主色提取 v2（背景剔除+分桶投票） → 归类到标签色，并按明度推断季节 */
+function aiTagLocal(){
+  dominantColorTag(draft.photo,(col)=>{
+    setTimeout(()=>{
+      /* 借助一次整体平均明度判断冷暖季节 */
+      const img=new Image();
+      img.onload=()=>{
+        const c=document.createElement("canvas");c.width=c.height=48;
+        const ctx=c.getContext("2d");ctx.drawImage(img,0,0,48,48);
+        const d=ctx.getImageData(0,0,48,48).data;
+        let lsum=0,nn=0;
+        for(let i=0;i<d.length;i+=4){
+          if(d[i+3]<120)continue;
+          lsum+=(Math.max(d[i],d[i+1],d[i+2])+Math.min(d[i],d[i+1],d[i+2]))/510;nn++;
+        }
+        const lum=lsum/(nn||1);
+        draft.colors=[col];
+        draft.seasons=lum<=0.35?["秋","冬"]:(lum>=0.7?["春","夏"]:["春","秋"]);
+        if(!draft.type)draft.type="上衣";
+        document.getElementById("aiLine2").style.display="block";
+        document.getElementById("aiLine2").textContent=`🤖 主色识别完成：${COLOR_NAME[col]||col}（已自动填入颜色标签）· 明度推断季节：${draft.seasons.join("/")}`;
+        renderPick("typePick",TYPES,"type");renderPick("seasonPick",SEASONS,"seasons");
+        renderPick("sceneTagPick",SCENES,"scenes");renderPick("colorPick",COLORS,"colors");
+        document.getElementById("aiLine3").style.display="block";
+      };
+      img.src=draft.photo;
+    },600);
+  });
 }
 function hslToTag(r,g,b){
   r/=255;g/=255;b/=255;
@@ -582,14 +675,17 @@ function hslToTag(r,g,b){
     if(max===r)h=((g-b)/dl)%6; else if(max===g)h=(b-r)/dl+2; else h=(r-g)/dl+4;
     h=Math.round(h*60); if(h<0)h+=360;
   }
-  if(l<0.18)return {tag:"黑",l};
-  if(s<0.18)return {tag:l>0.85?"白":(l>0.55?"米":"灰"),l};
-  if(h>=330||h<15)return {tag:l>0.55?"粉":"红",l};
-  if(h<50)return {tag:l>0.6?"米":"棕",l};
-  if(h<80)return {tag:"米",l};
-  if(h<170)return {tag:"绿",l};
-  if(h<270)return {tag:"蓝",l};
-  return {tag:l>0.55?"粉":"蓝",l};
+  if(l<0.16)return {tag:"黑",l};
+  if(s<0.15)return {tag:l>0.86?"白":(l>0.55?"米":"灰"),l};
+  if(h>=330||h<12)return {tag:l>0.62?"粉":(l<0.45&&s>0.4?"酒红":"红"),l};
+  if(h<22)return {tag:(s>0.45&&l<0.62)?"酒红":"红",l};
+  if(h<42)return {tag:(l>0.6&&s<0.65)?"驼":(l<0.52?"棕":"橙"),l};
+  if(h<65)return {tag:(l>0.58&&s<0.45)?"卡其":"黄",l};
+  if(h<85)return {tag:"黄",l};
+  if(h<165)return {tag:l<0.4?"墨绿":"绿",l};
+  if(h<260)return {tag:l<0.35?"藏青":"蓝",l};
+  if(h<300)return {tag:"紫",l};
+  return {tag:l>0.6?"粉":"紫",l};
 }
 function renderPick(id,list,field){
   const el=document.getElementById(id);
@@ -919,7 +1015,7 @@ function genOne(si){
   const sec=sections[si];
   sec.candidates=genCandidates(sec.scene);sec.planIdx=0;
   renderSections();
-  if(getKey())aiOutfitPlanFor(sec.scene).then(ps=>{
+  if(getKey())aiOutfitPlanFor(sec.scene,sec.time).then(ps=>{
     if(ps&&!ps.every(p=>sec.candidates.some(c=>c.key===p.key))){
       sec.candidates=[...ps.filter(p=>!sec.candidates.some(c=>c.key===p.key)),...sec.candidates].slice(0,3);
       sec.planIdx=0;renderSections()}
@@ -928,7 +1024,7 @@ function genOne(si){
 async function runAIPlans(){
   if(!getKey())return;
   for(const sec of sections){
-    const ps=await aiOutfitPlanFor(sec.scene);
+    const ps=await aiOutfitPlanFor(sec.scene,sec.time);
     if(ps&&!ps.every(p=>sec.candidates.some(c=>c.key===p.key))){
       sec.candidates=[...ps.filter(p=>!sec.candidates.some(c=>c.key===p.key)),...sec.candidates].slice(0,3);
       sec.planIdx=0}
@@ -948,15 +1044,27 @@ function dsStatusUpdate(){
     ?"✅ 已启用：穿搭推荐与每日资讯由 DeepSeek 生成"
     :"未配置，当前使用本地智能引擎";
 }
-async function dsChat(messages,model,maxTokens){
-  const r=await fetch("https://api.deepseek.com/chat/completions",{
-    method:"POST",
-    headers:{"Content-Type":"application/json","Authorization":"Bearer "+getKey()},
-    body:JSON.stringify({model:model||"deepseek-chat",messages,temperature:0.9,max_tokens:maxTokens||600})
-  });
-  if(!r.ok)throw new Error("HTTP "+r.status+(r.status===401?"（Key 无效）":""));
-  const j=await r.json();
-  return j.choices[0].message.content;
+async function dsChat(messages,model,maxTokens,temp){
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),90000);   // 90s 超时：弱网下不再无限等待
+  try{
+    const r=await fetch("https://api.deepseek.com/chat/completions",{
+      method:"POST",
+      signal:ctrl.signal,
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+getKey()},
+      body:JSON.stringify({model:model||"deepseek-chat",messages,temperature:temp!=null?temp:0.9,max_tokens:maxTokens||600})
+    });
+    if(!r.ok){
+      let extra="";
+      if(r.status===400)extra="（请求被拒：通常是图片过大，请重拍或截取衣物主体）";
+      if(r.status===401)extra="（Key 无效）";
+      if(r.status===402)extra="（余额不足）";
+      if(r.status===429)extra="（请求太快，稍等几秒再试）";
+      throw new Error("HTTP "+r.status+extra);
+    }
+    const j=await r.json();
+    return j.choices[0].message.content;
+  }finally{clearTimeout(timer)}
 }
 function wardrobeBrief(scene){
   /* 借鉴 wardrowbe 两阶段推荐：先本地预排序，只把 top20 发给大模型（省 token 且质量更高） */
@@ -964,27 +1072,50 @@ function wardrobeBrief(scene){
     .map(i=>({i,s:itemScore(i,scene||"休闲")})).sort((a,b)=>b.s-a.s).slice(0,20)
     .map(({i})=>({id:i.id,name:i.name,type:i.type,colors:i.colors,style:i.style,formality:i.formality,seasons:i.seasons,scenes:i.scenes}));
 }
-async function aiOutfitPlanFor(scene){
+async function aiOutfitPlanFor(scene,secTime){
   if(!getKey())return null;
-  /* 造型原则与输出格式借鉴 wardrowbe prompts/recommendation.txt */
-  const sys=`你是专业穿搭顾问，为用户从衣橱中组出 3 套完整造型（按优劣排序，第 1 套最强，各套核心单品不得重复）。
+  const timeHint=secTime&&secTime!=="全天"?secTime:(h=>h<11?"上午":h<14?"中午":h<18?"下午":h<22?"晚上":"夜深")(new Date().getHours());
+  /* 造型原则完整移植 wardrowbe prompts/recommendation.txt，叠加身形脸型知识库与分时段规则 */
+  const sys=`你是一位有十年经验的专业造型师，为用户从其真实衣橱中组出 3 套完整造型（按优劣排序，第 1 套最强，各套核心单品不得重复）。
 
-造型原则：
-- 色彩：全套不超过 3 个颜色（黑白灰米棕等中性色不计入）；可选同色系深浅、中性打底+一个彩色点睛、相近色和谐
-- 松紧平衡：上衣宽松则下装利落，反之亦然；不要上下同时宽松
-- 层次：天气需要时按 内层+中间层+外套 思路搭，外套脱掉后整体依然成立
-- 正式度：匹配场合（通勤/正式=利落，约会=精致，休闲=放松，运动=机能）
-- 身形脸型：优先参考「身材档案」的测量数据与视觉特征（如梨形选 A 字/直筒、圆脸多用 V 领、方脸用圆领、沙漏形露腰线、小个子用高腰线）
-- 每件单品都要有存在的理由，不要凑数
+【色彩方法】三选一并贯穿整套：
+- 同色系：同一颜色家族内的深浅与材质变化，如燕麦米+驼+深棕
+- 中性打底+一个点睛：黑白灰米驼卡其棕等中性色为主体，加一个彩色单品提神
+- 邻近色和谐：色环相邻的组合，如雾霾蓝+墨绿、焦糖棕+酒红
+全套最多 3 个颜色（中性色不计入）。避免红配绿、蓝配粉这类邻近强色互撞。
 
-只返回 JSON：{"outfits":[{"items":["id"],"headline":"5字内造型标题","reason":"40字内搭配理由","fit":"40字内说明如何修饰身形脸型","tip":"一条具体的穿法细节（如塞衣角/挽袖/叠戴），每次换个说法","score":0-100}]}`;
-  const user=JSON.stringify({天气:wx,场合:scene,身形:DB.profile.body||"未填",脸型:DB.profile.face||"未填",
+【材质对比】光滑配粗糙、哑光配微光泽，制造层次；不要两种同质感单品堆一起（两件亮面、两件粗棒针织）。天热配棉麻，天冷配羊毛针织。
+
+【廓形平衡】上宽下紧或上紧下宽，绝不上下同时宽松；高腰线/塞衣角能优化比例。若用户提供了身材档案，必须针对性运用：小个子拉高腰线、丰满身形选直筒或A字、瘦削身形可穿廓形感。
+
+【层次（天冷时）】按 内层（T恤/衬衫）+ 中间层（毛衣/卫衣）+ 外层（外套/大衣）思考；每层要露出且各有作用，外套脱掉后整套依然成立。
+
+【时段】上午/白天=清新实用；下午=兼顾正式与舒适；晚上=加深色调、更精致的面料与配饰；全天=百搭可调节。
+
+【轮廓结构】每套必须是以下之一：
+- 分体：1件上衣 + 1件下装 + 1双鞋
+- 连体：1条连衣裙 + 1双鞋
+天冷时优先从衣橱加外套；有裙装/短裤且天凉可加连裤袜类配饰；合适时加1个包与配饰（腰带/丝巾/帽子/首饰）。每件单品都要有存在的理由，绝不凑数。
+
+【身形脸型知识库】（若档案中给出对应特征，必须落实在 fit 字段里）
+- 梨形：A字裙/直筒裤/阔腿裤弱化臀胯，上半身用亮色或横条纹转移焦点
+- 苹果形：V领拉长颈部，高腰线放在胸下，避免腰部堆叠细节
+- 沙漏形：收腰/腰带大胆展示腰线，修身上衣+高腰下装
+- 直筒形：腰带/束腰外套/荷叶边制造曲线
+- 倒三角：下装选阔腿/百褶/浅色平衡宽肩，避免垫肩与落肩款
+- 圆脸：V领/大耳环/长项链拉长面部线条，避免高领与圆领堆叠
+- 方脸：圆领/弧形项链柔化下颌线，避免立领与方正耳饰
+- 长脸：船领/横向领口/齐刘海造型缩短视觉脸长，避免深V与长直发贴脸
+- 心形脸：船领/中量感耳饰平衡宽额窄下巴
+
+只返回 JSON：{"outfits":[{"items":["id"],"headline":"5字内造型标题","reason":"40字内搭配理由（每次换角度：色彩/材质/廓形/场合/天气/时段轮着讲）","fit":"40字内说明这套如何修饰用户的身形脸型（无档案则给通用显高显瘦逻辑）","tip":"一条具体可执行的穿法细节（塞衣角/挽袖/叠戴/换腰带位等，每次换说法）","score":0-100}]}`;
+  const user=JSON.stringify({天气:wx,场合:scene,时段:timeHint,身形:DB.profile.body||"未填",脸型:DB.profile.face||"未填",
     身材档案:fitProfile()||"未提供",温度敏感度:DB.profile.sens||"标准",
     风格偏好:DB.profile.styles,历史反馈画像:DB.affinity,昨日已穿:yesterdayNames(),
     衣橱按匹配度排序:wardrobeBrief(scene)});
   try{
-    const txt=await dsChat([{role:"system",content:sys},{role:"user",content:user}],null,900);
-    const o=JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+    const txt=await dsChat([{role:"system",content:sys},{role:"user",content:user}],null,1100,0.7);
+    const o=parseLooseJSON(txt);
     const plans=[];
     for(const it of (o.outfits||[]).slice(0,3)){
       const set=(it.items||[]).map(id=>DB.items.find(x=>x.id===id)).filter(Boolean);
@@ -1166,29 +1297,37 @@ function applyMeasures(){
   save();renderProfilePicks();renderTip();
   toast("已推断体型："+r.shape+(r.bmi?"（BMI "+r.bmi+"）":""));
 }
-/* ===== 照片 AI 分析：DeepSeek 视觉识别脸型/体型 ===== */
+/* ===== 照片 AI 分析：DeepSeek 视觉识别脸型/体型（降采样+重试，修复原图过大失败） ===== */
 async function analyzePhoto(inp,kind){
   const f=inp.files&&inp.files[0];if(!f)return;
   if(!getKey())return toast("照片分析需要先在上方填入 DeepSeek API Key");
   const st=document.getElementById("photoAnalysis");
   st.textContent="🔍 AI 正在分析照片…（照片仅发送给 DeepSeek 做单次识别，不做存储）";
-  const fr=new FileReader();
-  fr.onload=async()=>{
-    const prompt=kind==="face"
-      ?'你是形象顾问。分析这张正脸照的脸型，只能从 ["圆脸","鹅蛋脸","方脸","心形脸","长脸"] 中选一个。只返回 JSON：{"result":"脸型","detail":"30字内特征描述（颧骨宽度、下巴线条、脸长脸宽比）","advice":"40字内适合的领型、发型与配饰建议"}'
-      :'你是形象顾问。分析这张全身照的体型，只能从 ["梨形","苹果形","沙漏形","直筒形","倒三角"] 中选一个。只返回 JSON：{"result":"体型","detail":"30字内特征描述（肩腰臀比例、腰线位置、腿长比例）","advice":"40字内显高显瘦的穿法建议"}';
-    try{
-      const txt=await dsChat([{role:"user",content:[
-        {type:"image_url",image_url:{url:fr.result}},
-        {type:"text",text:prompt}]}],"deepseek-flash");
-      const o=JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
-      if(kind==="face"){DB.profile.face=o.result;DB.profile.faceDetail=o.detail+"。"+o.advice}
-      else{DB.profile.body=o.result;DB.profile.bodySource="photo";DB.profile.bodyDetail=o.detail+"。"+o.advice}
-      save();renderProfilePicks();renderTip();
-      st.innerHTML=`✅ AI 分析完成：<b>${o.result}</b> — ${o.detail}。${o.advice}`;
-    }catch(e){st.textContent="⚠️ 分析失败："+e.message}
-  };
-  fr.readAsDataURL(f);
+  /* 压到 900px：原图几 MB 的 base64 会直接被接口拒绝，这是之前「无法识别」的根因 */
+  let dataURL;
+  try{dataURL=await fileToData(f,900,0.85)}
+  catch(e){st.textContent="⚠️ 照片读取失败："+e.message;return}
+  const prompt=kind==="face"
+    ?'你是专业形象顾问。仔细分析这张正脸照的脸型。判断依据（逐一对照）：脸长与脸宽比例（长脸明显偏长）、额头宽度、颧骨宽度与位置、下颌角是否分明（方脸）、下巴尖圆（心形脸下巴尖）。只能从 ["圆脸","鹅蛋脸","方脸","心形脸","长脸"] 中选一个最接近的。只返回 JSON：{"result":"脸型","detail":"30字内特征描述（重点写你在照片中观察到的依据）","advice":"40字内适合的领型、发型与配饰建议"}'
+    :'你是专业形象顾问。仔细分析这张全身照的体型。判断依据（逐一对照）：肩宽与臀宽对比（倒三角肩明显宽）、腰臀比（沙漏腰线明显且腰臀差大）、腰腹是否突出（苹果形）、臀部大腿是否明显宽于肩与腰（梨形）、整体线条是否平直（直筒形）。只能从 ["梨形","苹果形","沙漏形","直筒形","倒三角"] 中选一个最接近的。只返回 JSON：{"result":"体型","detail":"30字内特征描述（重点写你在照片中观察到的肩腰臀比例依据）","advice":"40字内显高显瘦的穿法建议"}';
+  const call=()=>dsChat([{role:"user",content:[
+    {type:"image_url",image_url:{url:dataURL}},
+    {type:"text",text:prompt}]}],"deepseek-flash",400,0.2);
+  let txt;
+  try{
+    txt=await call();   // 第一次失败（网络抖动/限流）自动重试一次
+  }catch(e1){
+    st.textContent="⚠️ 第一次调用失败（"+e1.message+"），自动重试中…";
+    try{txt=await call()}
+    catch(e2){st.textContent="⚠️ 分析失败："+e2.message+"（可稍后重试，或直接在上方手动选择身形/脸型）";return}
+  }
+  try{
+    const o=parseLooseJSON(txt);
+    if(kind==="face"){DB.profile.face=o.result;DB.profile.faceDetail=o.detail+"。"+o.advice}
+    else{DB.profile.body=o.result;DB.profile.bodySource="photo";DB.profile.bodyDetail=o.detail+"。"+o.advice}
+    save();renderProfilePicks();renderTip();
+    st.innerHTML=`✅ AI 分析完成：<b>${o.result}</b> — ${o.detail}。${o.advice}`;
+  }catch(e){st.textContent="⚠️ 返回解析失败："+e.message+"（模型偶发格式问题，请再试一次）"}
 }
 /* ===== 传给推荐模型的完整身材档案 ===== */
 function fitProfile(){
@@ -1227,7 +1366,7 @@ async function aiTip(){
   try{
     const txt=await dsChat([{role:"system",content:"你是穿搭资讯编辑。基于用户身形、脸型、今日天气与场合，输出一句30字内的中文穿搭小建议。只返回 JSON：{\"tip\":\"...\"}"},
       {role:"user",content:JSON.stringify({天气:wx,场合:curScene,身形:DB.profile.body||"未填",脸型:DB.profile.face||"未填",季节:seasonByWx()[0]})}]);
-    const o=JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+    const o=parseLooseJSON(txt);
     if(o.tip){DB.aiTip={date:today(),scene:curScene,text:o.tip};addTip(o.tip,"deepseek");
       document.getElementById("dailyTip").textContent=o.tip;
       const lt=document.getElementById("libTip");
