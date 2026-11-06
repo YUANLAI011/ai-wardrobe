@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>AI 衣橱 · 穿搭加油站</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#C65A2E">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  :root{
+    --bg:#F4F1EB; --card:#FFFFFF; --ink:#26231F; --muted:#9A9288;
+    --accent:#C65A2E; --accent-2:#E0864F; --accent-soft:#FBEFE8;
+    --teal:#1E9E77; --teal-soft:#E2F4EC; --blue:#2C6BAA; --blue-soft:#E9F2FA;
+    --amber:#B7791F; --amber-soft:#FAF0DC; --red:#B23B3B; --red-soft:#FBEAEA;
+    --border:rgba(38,35,31,.08);
+    --radius:20px;
+    --serif:"Noto Serif SC","Songti SC","STSong",Georgia,serif;
+    --shadow:0 1px 2px rgba(38,35,31,.04),0 8px 24px rgba(38,35,31,.07);
+    --shadow-lift:0 2px 4px rgba(38,35,31,.06),0 14px 34px rgba(38,35,31,.13);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(620px 320px at 88% -6%,rgba(198,90,46,.09),transparent 62%),
+      radial-gradient(520px 320px at -12% 34%,rgba(30,158,119,.07),transparent 62%),
+      radial-gradient(420px 300px at 110% 72%,rgba(183,121,31,.06),transparent 60%)}
+  .app{max-width:430px;margin:0 auto;min-height:100vh;position:relative;z-index:1;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+
+  /* ===== 头部 ===== */
+  header{padding:26px 22px 14px;display:flex;align-items:flex-end;justify-content:space-between}
+  header .eyebrow{font-size:10px;letter-spacing:.22em;color:var(--accent);font-weight:600;margin-bottom:3px}
+header h1{font-family:var(--serif);font-size:27px;font-weight:600;letter-spacing:.04em}
+  header{border-bottom:1px solid rgba(38,35,31,.06);margin-bottom:14px}
+  header .date{letter-spacing:.06em}
+  header .date{font-size:12px;color:var(--muted);padding-bottom:5px}
+  .view{padding:0 16px}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @keyframes popIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+
+  /* ===== 卡片 ===== */
+  .card{background:var(--card);border:1px solid rgba(255,255,255,.7);border-radius:var(--radius);padding:16px;margin-bottom:14px;box-shadow:var(--shadow);animation:fadeUp .35s ease both}
+.card h3{font-family:var(--serif);font-size:15px;font-weight:600;margin-bottom:10px;letter-spacing:.03em;display:flex;align-items:center;gap:8px}
+  .card h3::before{content:"";width:3px;height:14px;border-radius:2px;background:linear-gradient(180deg,var(--accent),var(--amber));flex-shrink:0}
+  .eyebrow2{font-size:9px;letter-spacing:.3em;color:var(--muted);text-transform:uppercase;margin-bottom:5px;font-weight:600}
+  .hairline{height:1px;background:linear-gradient(90deg,rgba(183,121,31,.35),rgba(183,121,31,.06) 60%,transparent);border:none;margin:10px 0}
+  .hint{font-size:12px;color:var(--muted);line-height:1.5}
+
+  /* ===== 按钮 ===== */
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:12px;font-size:14px;padding:9px 16px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-weight:500;box-shadow:0 4px 14px rgba(198,90,46,.28);transition:all .2s ease}
+  button:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(198,90,46,.36)}
+  button:active{transform:translateY(0)}
+  button.ghost{background:transparent;color:var(--accent);border:1px solid rgba(198,90,46,.45);box-shadow:none}
+  button.ghost:hover{background:var(--accent-soft)}
+  button.sm{font-size:12px;padding:6px 12px;border-radius:10px;box-shadow:none}
+  button.sm:not(.ghost){box-shadow:0 2px 8px rgba(198,90,46,.2)}
+  button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+  /* ===== 底部导航：毛玻璃浮动胶囊 ===== */
+  nav{position:fixed;bottom:calc(14px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:auto;max-width:402px;background:rgba(255,255,255,.8);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.65);border-radius:24px;padding:6px;display:flex;z-index:50;box-shadow:var(--shadow-lift)}
+  nav button{flex:1;background:none;color:var(--muted);font-size:10px;padding:7px 13px;border-radius:18px;display:flex;flex-direction:column;gap:2px;align-items:center;box-shadow:none}
+nav button .ic{font-style:normal;transition:transform .2s;display:flex}
+  nav button .ic svg{width:21px;height:21px;display:block}
+  nav button.on .ic svg{stroke-width:1.9}
+  nav button:hover{transform:none}
+  nav button.on{background:linear-gradient(135deg,var(--ink),#4A423A);color:#fff}
+  nav button.on .ic{transform:scale(1.08)}
+
+  /* ===== 筛选与标签 ===== */
+  .filters{display:flex;gap:7px;flex-wrap:wrap;margin:2px 0 12px}
+  .filters button{background:#fff;color:var(--ink);border:1px solid var(--border);font-size:12px;padding:6px 13px;border-radius:99px;box-shadow:0 1px 3px rgba(38,35,31,.05)}
+  .filters button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .chip{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;margin:2px 4px 2px 0;background:var(--accent-soft);color:var(--accent)}
+  .chip.t{background:var(--teal-soft);color:var(--teal)} .chip.b{background:var(--blue-soft);color:var(--blue)}
+  .chip.a{background:var(--amber-soft);color:var(--amber)} .chip.g{background:#F1EDE6;color:var(--muted)}
+
+  /* ===== 衣物网格 ===== */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .item{background:#fff;border:none;border-radius:16px;overflow:hidden;cursor:pointer;box-shadow:var(--shadow);transition:transform .22s ease,box-shadow .22s ease;animation:popIn .3s ease both}
+  .item:hover{transform:translateY(-3px);box-shadow:var(--shadow-lift)}
+  .item{position:relative}
+  .item .ph{height:110px;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#FBF7F0,#F3EADB)}
+  .item .ph img{width:100%;height:110px;object-fit:cover}
+  .item .gi{font-size:34px;filter:saturate(.92)}
+  .item .badge{position:absolute;top:8px;left:8px;font-size:9px;letter-spacing:.14em;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,.9);color:var(--muted);box-shadow:0 1px 4px rgba(38,35,31,.12);backdrop-filter:blur(4px)}
+  .item .nm{font-family:var(--serif);font-weight:600;font-size:12.5px;padding:8px 9px 1px}
+  .item .no{font-size:9.5px;letter-spacing:.08em;color:var(--muted);padding:0 9px 9px}
+  .item .ph img{width:100%;height:96px;object-fit:cover}
+  .item .nm{font-size:12px;padding:7px 8px 1px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .item .no{font-size:10px;color:var(--muted);padding:0 8px 8px}
+  .item .warn{color:var(--red);font-weight:500}
+
+  /* ===== 表单 ===== */
+  .form label{display:block;font-size:12px;color:var(--muted);margin:12px 0 5px;font-weight:500}
+  .form input,.form select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:12px;font-size:14px;font-family:inherit;background:#FCFBF9;transition:border-color .2s,box-shadow .2s}
+  .form input:focus,.form select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(198,90,46,.12);background:#fff}
+  .form .row{display:flex;gap:8px}
+  .form .row>*{flex:1}
+  .tagpick{display:flex;flex-wrap:wrap;gap:7px}
+  .tagpick button{background:#FCFBF9;color:var(--ink);border:1px solid var(--border);font-size:12px;padding:6px 13px;border-radius:99px;box-shadow:none}
+  .tagpick button:hover{border-color:rgba(198,90,46,.4)}
+  .tagpick button.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+
+  /* ===== AI 分析框与照片框 ===== */
+  .aibox{background:var(--blue-soft);border:1px dashed rgba(44,107,170,.5);border-radius:14px;padding:12px;margin:10px 0;font-size:12px;color:var(--blue);animation:popIn .3s ease both}
+  .photobox{border:1.5px dashed rgba(38,35,31,.18);border-radius:16px;height:126px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:var(--muted);font-size:13px;cursor:pointer;background:#FBFAF7;transition:all .2s}
+  .photobox:hover{border-color:var(--accent);background:var(--accent-soft)}
+  .photobox img{max-height:100%;max-width:100%;border-radius:12px;object-fit:cover}
+
+  /* ===== 天气卡：暖色晨光渐变 ===== */
+  .wxcard{background:linear-gradient(140deg,#FFFDF9 0%,#FAF1E4 48%,#F6E6D3 100%);border:1px solid rgba(255,255,255,.8)}
+  .wx{display:flex;align-items:center;gap:14px}
+  .wx .big{font-family:var(--serif);font-size:46px;font-weight:600;line-height:1}
+  .wx .desc{font-size:13px;color:var(--muted)}
+  .wxsim{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .wxsim button{background:rgba(255,255,255,.75);color:var(--ink);border:1px solid var(--border);font-size:11px;padding:5px 10px;border-radius:99px;box-shadow:none}
+  .wxsim button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  /* ===== 穿搭方案 ===== */
+  .outfit{display:flex;gap:10px;justify-content:space-between;margin:12px 0 8px}
+  .outfit .slot{flex:1;text-align:center}
+.outfit .emoji{width:58px;height:58px;margin:0 auto;border-radius:18px;background:linear-gradient(150deg,#FBF6EE,#F1E4CF);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:22px;font-weight:600;color:var(--accent);box-shadow:inset 0 0 0 1px rgba(198,90,46,.1),0 2px 8px rgba(198,90,46,.1);overflow:hidden}
+  .outfit .emoji img{width:100%;height:100%;object-fit:cover}
+  .outfit .slot .nm{font-size:11px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .score{display:flex;align-items:center;gap:10px;margin:2px 0 4px}
+  .score .num{font-family:var(--serif);font-size:38px;font-weight:600;line-height:1;background:linear-gradient(135deg,var(--accent),var(--amber));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .planbar{display:flex;gap:4px;margin-bottom:8px;background:#F1EDE5;border-radius:14px;padding:4px}
+  .planbar button{flex:1;background:transparent;color:var(--muted);border:none;font-size:12px;padding:7px 0;border-radius:11px;box-shadow:none}
+  .planbar button:hover{transform:none}
+  .planbar button.on{background:#fff;color:var(--ink);box-shadow:0 1px 5px rgba(38,35,31,.1)}
+  .why{font-size:13px;color:var(--muted);background:#FAF8F3;border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:8px}
+  .why b{color:var(--ink)}
+  .fbrow{display:flex;gap:8px;margin-top:12px}
+  .fbrow button{flex:1;font-size:13px;box-shadow:none}
+  .fbrow .like{background:var(--teal-soft);color:var(--teal)} .fbrow .dis{background:var(--red-soft);color:var(--red)}
+  .fbrow .like:hover,.fbrow .dis:hover{transform:translateY(-1px)}
+
+  /* ===== 清洗提醒 ===== */
+  .washrow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)}
+  .washrow:last-child{border-bottom:none}
+.washrow .e{width:42px;height:42px;border-radius:13px;background:linear-gradient(150deg,#FBF6EE,#F1E4CF);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--serif);font-size:19px;font-weight:600;color:var(--accent);box-shadow:inset 0 0 0 1px rgba(198,90,46,.08);overflow:hidden}
+  .washrow .info{flex:1;min-width:0}
+  .washrow .nm{font-size:13px;font-weight:500}
+  .bar{height:6px;border-radius:99px;background:#F1EDE5;margin-top:5px;overflow:hidden}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--teal),#3DBD93);border-radius:99px;transition:width .4s ease}
+  .bar i.danger{background:linear-gradient(90deg,var(--red),#D45757)}
+
+  /* ===== 统计 ===== */
+  .stat{display:flex;gap:10px;margin-bottom:14px}
+  .stat .card{flex:1;text-align:center;margin-bottom:0;padding:14px 6px}
+  .stat .num{font-family:var(--serif);font-size:24px;font-weight:600;color:var(--accent)}
+.stat .lb{font-size:10px;color:var(--muted);letter-spacing:.1em}
+  .stat .card{border-top:2px solid rgba(198,90,46,.25)}
+
+  /* ===== 提示与洞察 ===== */
+  .tip{font-size:13px;color:var(--ink);background:linear-gradient(135deg,var(--amber-soft),#F7E9C6);border:1px solid rgba(183,121,31,.18);border-radius:14px;padding:12px 14px}
+  .insrow{display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid var(--border)}
+  .insrow:last-child{border-bottom:none}
+  .empty{text-align:center;color:var(--muted);font-size:13px;padding:26px 0}
+
+  /* ===== 弹层 ===== */
+  .mask{position:fixed;inset:0;background:rgba(38,35,31,.4);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:none;align-items:flex-end;justify-content:center;z-index:100}
+  .mask.open{display:flex}
+  .sheet{background:#fff;width:100%;max-width:430px;border-radius:26px 26px 0 0;padding:14px 20px 28px;max-height:84vh;overflow:auto;box-shadow:0 -12px 40px rgba(38,35,31,.18);animation:fadeUp .3s ease both}
+  .sheet::before{content:"";display:block;width:38px;height:4px;border-radius:99px;background:#E5E0D8;margin:0 auto 12px}
+  .sheet h3{font-size:16px;font-weight:600;margin-bottom:10px}
+  .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-8px);background:rgba(38,35,31,.94);color:#fff;font-size:13px;padding:10px 18px;border-radius:99px;opacity:0;transition:.3s;z-index:200;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.22)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <div class="eyebrow">DAILY OUTFIT STUDIO</div>
+      <h1>AI 衣橱</h1>
+    </div>
+    <span class="date" id="dateStr"></span>
+  </header>
+
+  <!-- 衣橱 -->
+  <section class="view" id="v-wardrobe">
+    <div class="card">
+      <div class="eyebrow2">MY WARDROBE</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0">我的衣橱</h3>
+        <button class="sm" onclick="openAdd()">＋ 录入衣物</button>
+      </div>
+      <p class="hint" style="margin-top:4px">拍照上传 → AI 提取主色与标签 → 补充昵称即可入库</p>
+    </div>
+    <div class="filters" id="filters"></div>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="gridEmpty" style="display:none">衣橱还空着，点右上角「＋ 录入衣物」开始吧</div>
+  </section>
+
+  <!-- 今日穿搭 -->
+  <section class="view" id="v-outfit" style="display:none">
+    <div class="card wxcard">
+      <div class="eyebrow2" style="color:rgba(198,90,46,.75)">TODAY · 今日天气</div>
+      <h3 style="margin-bottom:6px">出门前的第一件事</h3>
+      <div class="wx">
+        <span class="big" id="wxTemp">--°</span>
+        <div>
+          <div class="desc" id="wxDesc">正在获取定位与天气…</div>
+          <div class="desc" id="wxSrc"></div>
+        </div>
+      </div>
+      <div class="wxsim" id="wxsim"></div>
+      <div style="margin-top:9px;font-size:13px;color:var(--muted)" id="wxLoc">📍 定位中…</div>
+      <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
+        <input id="citySearch" placeholder="手动定位城市（如：长沙）" style="flex:1;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit" onkeydown="if(event.key==='Enter')searchCity()">
+        <button class="sm ghost" onclick="searchCity()" style="white-space:nowrap">搜索</button>
+        <button class="sm ghost" onclick="clearLoc()" style="white-space:nowrap">自动定位</button>
+      </div>
+      <p class="hint" style="margin-top:6px" id="wxTip"></p>
+    </div>
+    <div class="card">
+      <h3>今日行程</h3>
+      <p class="hint">录入今天的时段安排，AI 会按时段分场景各推荐一套，并贴合你的身形脸型</p>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <select id="schTime" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit;background:#fff"></select>
+        <select id="schScene" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit;background:#fff"></select>
+        <button class="sm" onclick="addSchedule()">添加</button>
+      </div>
+      <div id="schList" style="margin-top:6px"></div>
+    </div>
+    <div class="card">
+      <h3>今天什么场合？</h3>
+      <p class="hint" id="sceneHint">行程有安排时按行程推荐；没有行程时按这里选的场合推荐</p>
+      <div class="tagpick" id="scenePick"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0">AI 推荐穿搭</h3>
+        <button class="sm ghost" onclick="genOutfit(true)">重新生成</button>
+      </div>
+      <div id="outfitBody"><div class="empty">先选好场合，衣橱里有干净衣服就会帮你搭～</div></div>
+    </div>
+    <div class="card" id="tipCard">
+      <h3>穿搭加油站</h3>
+      <div class="tip" id="dailyTip"></div>
+      <p class="hint" style="margin-top:6px" id="tipWhy"></p>
+    </div>
+  </section>
+
+  <!-- 清洗提醒 -->
+  <section class="view" id="v-wash" style="display:none">
+    <div class="card">
+      <div class="eyebrow2">CARE · 衣物护理</div>
+      <h3>清洗提醒</h3>
+      <p class="hint">每次穿搭打卡会累计穿着次数，达到该类型的建议清洗次数就会提醒你</p>
+    </div>
+    <div class="card" id="washList"></div>
+    <div class="card" id="washAlert" style="display:none"></div>
+    <div class="card">
+      <h3>穿着记录</h3>
+      <div id="wearLog"></div>
+    </div>
+  </section>
+
+  <!-- 我的 -->
+  <section class="view" id="v-me" style="display:none">
+    <div class="eyebrow2" style="margin:2px 4px 10px">MY PROFILE · 专属档案</div>
+    <div class="stat">
+      <div class="card"><div class="num" id="stItems">0</div><div class="lb">衣物总数</div></div>
+      <div class="card"><div class="num" id="stWorn">0</div><div class="lb">累计打卡</div></div>
+      <div class="card"><div class="num" id="stOutfits">0</div><div class="lb">AI 搭配次数</div></div>
+    </div>
+    <div class="card">
+      <h3>AI 大脑 · DeepSeek</h3>
+      <p class="hint">填入你的 DeepSeek API Key（sk- 开头，仅保存在本浏览器）：拍照识别用 deepseek-flash 视觉模型（一张图仅 384 token，识别一件衣服约 0.001 元），穿搭推荐与每日资讯由大模型生成。</p>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="dsKey" type="password" placeholder="sk-..." style="flex:1;padding:8px 11px;border:1px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit">
+        <button class="sm" onclick="saveKey()">保存</button>
+      </div>
+      <p class="hint" id="dsStatus" style="margin-top:6px"></p>
+    </div>
+    <div class="card">
+      <h3>AI 已学到你的偏好</h3>
+      <div id="learned"></div>
+      <p class="hint">每次给搭配点 👍/👎，AI 都会记住你喜欢和讨厌的颜色、风格组合</p>
+    </div>
+    <div class="card">
+      <h3>衣橱洞察</h3>
+      <div id="insights"></div>
+    </div>
+    <div class="card">
+      <h3>个人档案（影响 AI 推荐）</h3>
+      <div class="form">
+        <label>身形</label>
+        <div class="tagpick" id="bodyPick"></div>
+        <label>脸型</label>
+        <div class="tagpick" id="facePick"></div>
+        <label>📐 身材数据（可选，填了更精准：AI 会自动推导体型）</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input id="mH" type="number" placeholder="身高cm" style="width:76px;padding:7px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit">
+          <input id="mW" type="number" placeholder="体重kg" style="width:76px;padding:7px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit">
+          <input id="mS" type="number" placeholder="肩宽cm" style="width:76px;padding:7px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit">
+          <input id="mWa" type="number" placeholder="腰围cm" style="width:76px;padding:7px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit">
+          <input id="mHp" type="number" placeholder="臀围cm" style="width:76px;padding:7px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit">
+          <button class="sm" onclick="applyMeasures()">🧮 推断体型</button>
+        </div>
+        <p class="hint" id="measureHint" style="margin-top:6px"></p>
+        <label>📷 照片辅助分析（可选，用 DeepSeek 视觉识别，比自选更真实）</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:13px">
+          <span>正脸照：</span><input type="file" accept="image/*" id="facePhoto" onchange="analyzePhoto(this,'face')" style="max-width:180px">
+          <span>全身照：</span><input type="file" accept="image/*" id="bodyPhoto" onchange="analyzePhoto(this,'body')" style="max-width:180px">
+        </div>
+        <p class="hint" id="photoAnalysis" style="margin-top:6px"></p>
+        <label>🌡 温度敏感度（影响 AI 判断什么温度算冷/热）</label>
+        <div class="tagpick" id="sensPick"></div>
+        <label>风格偏好（可多选）</label>
+        <div class="tagpick" id="stylePick"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>关于这个 Demo</h3>
+      <p class="hint">配置 DeepSeek Key 后：拍照识别、穿搭推荐、每日资讯均由 deepseek-flash / deepseek-chat 实时生成（OpenAI 兼容接口，图片走 base64 内联）；未配置时由本地引擎兜底。</p>
+    </div>
+  </section>
+
+  <!-- 穿搭加油站 -->
+  <section class="view" id="v-tips" style="display:none">
+    <div class="card">
+      <div class="eyebrow2">DAILY STUDIO · 灵感</div>
+      <h3>今日穿搭加油站</h3>
+      <div class="tip" id="libTip"></div>
+      <p class="hint" style="margin-top:6px">每天按场合自动生成，并自动存入下方资讯库</p>
+      <div style="margin-top:8px"><button class="sm ghost" onclick="refreshTip()">🔄 换一条</button></div>
+    </div>
+    <div class="card">
+      <h3>智能种草 · 直达淘宝/小红书</h3>
+      <p class="hint">AI 根据你的衣橱缺口、季节与风格偏好生成搜索关键词，点击跳转对应平台的搜索结果页</p>
+      <div id="shopRecs"></div>
+      <div style="margin-top:10px"><button class="sm ghost" onclick="genShopRecs(true)">🔄 换一批推荐</button></div>
+    </div>
+    <div class="card">
+      <h3>我的资讯库</h3>
+      <p class="hint">每天生成的资讯自动入库（本地数据库），可随时回看</p>
+      <div id="tipLib"></div>
+      <div style="margin-top:8px"><button class="sm ghost" onclick="DB.tips=[];save();renderTipLib();toast('资讯库已清空')">清空</button></div>
+    </div>
+  </section>
+
+  <nav>
+    <button class="on" data-v="wardrobe" onclick="switchView('wardrobe',this)"><i class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5a2.2 2.2 0 1 1 2.2-2.2"/><path d="M12 6.5c0 2-1 2.6-2.2 3.4L3.6 13.5A1.9 1.9 0 0 0 4.7 17h14.6a1.9 1.9 0 0 0 1.1-3.5L14.2 9.9C13 9.1 12 8.5 12 6.5z"/></svg></i>衣橱</button>
+    <button data-v="outfit" onclick="switchView('outfit',this)"><i class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.1 5.4 5.4 2.1-5.4 2.1L12 18.5l-2.1-5.4L4.5 11l5.4-2.1z"/><path d="M18.5 16.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></i>今日穿搭</button>
+    <button data-v="wash" onclick="switchView('wash',this)"><i class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5s6 6.6 6 11a6 6 0 1 1-12 0c0-4.4 6-11 6-11z"/><path d="M9.5 14.5a2.6 2.6 0 0 0 2.5 2.6"/></svg></i>提醒</button>
+    <button data-v="tips" onclick="switchView('tips',this)"><i class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 0 1 3.7 10.7c-.8.6-1.2 1.4-1.4 2.3h-4.6c-.2-.9-.6-1.7-1.4-2.3A6 6 0 0 1 12 3z"/></svg></i>加油站</button>
+    <button data-v="me" onclick="switchView('me',this)"><i class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.2" r="3.4"/><path d="M5.2 20c1.3-3.1 3.9-4.5 6.8-4.5s5.5 1.4 6.8 4.5"/></svg></i>我的</button>
+  </nav>
+</div>
+
+<!-- 添加衣物 -->
+<div class="mask" id="addMask">
+  <div class="sheet">
+    <h3>录入新衣物</h3>
+    <div class="form">
+      <div class="photobox" id="photoBox" onclick="document.getElementById('fileInput').click()">
+        <span id="photoHint">📷 点击拍照 / 选择图片</span>
+        <img id="photoPrev" style="display:none">
+      </div>
+      <input type="file" id="fileInput" accept="image/*" style="display:none">
+      <div class="aibox" id="aiSteps" style="display:none">
+        <div id="aiLine1">🤖 AI 分析中：提取主色调…</div>
+        <div id="aiLine2" style="display:none"></div>
+        <div id="aiLine3" style="display:none">✅ 标签已填好，可确认或修改</div>
+      </div>
+      <div class="row">
+        <div style="flex:1.4"><label>昵称 *</label><input id="fName" placeholder="如：奶白小西装"></div>
+        <div><label>编号</label><input id="fNo" placeholder="自动"></div>
+      </div>
+      <label>类型</label>
+      <div class="tagpick" id="typePick"></div>
+      <label>适合季节（可多选）</label>
+      <div class="tagpick" id="seasonPick"></div>
+      <label>适合场景（可多选）</label>
+      <div class="tagpick" id="sceneTagPick"></div>
+      <label>颜色</label>
+      <div class="tagpick" id="colorPick"></div>
+      <div style="margin-top:16px;display:flex;gap:8px">
+        <button style="flex:1" onclick="saveItem()">保存入库</button>
+        <button class="ghost" style="flex:0.6" onclick="closeAdd()">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 详情 -->
+<div class="mask" id="detailMask">
+  <div class="sheet" id="detailSheet"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= 数据层 ================= */
+const KEY="aiwardrobe_v2";
+const TYPES=["上衣","下装","连衣裙","外套","鞋","配饰"];
+const SEASONS=["春","夏","秋","冬"];
+const SCENES=["通勤","约会","休闲","运动","正式"];
+const COLORS=["黑","白","米","灰","蓝","粉","棕","红","绿"];
+const STYLES=["简约","甜美","酷飒","知性","运动风","复古"];
+const BODIES=["梨形","苹果形","沙漏形","直筒形","倒三角"];
+const FACES=["圆脸","鹅蛋脸","方脸","心形脸","长脸"];
+const TYPE_ICON={"上衣":"👚","下装":"👖","连衣裙":"👗","外套":"🧥","鞋":"👟","配饰":"🧣"};
+const TYPE_WASH={"上衣":2,"下装":4,"连衣裙":3,"外套":10,"鞋":30,"配饰":8};
+const NEUTRAL=["黑","白","米","灰","棕"];
+const HUE={黑:-1,白:-1,米:40,灰:-1,蓝:220,粉:340,棕:30,红:0,绿:120};
+const COLOR_NAME={黑:"纯黑",白:"象牙白",米:"燕麦米",灰:"高级灰",蓝:"雾霾蓝",粉:"樱花粉",棕:"焦糖棕",红:"复古红",绿:"橄榄绿"};
+/* 正式度体系（借鉴 wardrowbe）：场合→可接受正式度，错一档 0.6 分，错两档 0.2 */
+const FORMALITY=["正式","日常","运动"];
+const SCENE_FORMALITY={"通勤":["正式","日常"],"正式":["正式"],"约会":["日常","正式"],"休闲":["日常"],"运动":["运动"]};
+/* 温度阈值：怕冷的人 cold 阈值上移 hot 下移（借鉴 wardrowbe temperature_sensitivity ±5°C，这里 ±3） */
+const SENS={"怕冷":3,"标准":0,"怕热":-3};
+function tempThresholds(){
+  const s=SENS[DB&&DB.profile&&DB.profile.sens||"标准"]||0;
+  return {cold:8+s,hot:26-s};
+}
+
+let DB=load();
+function load(){
+  try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.items){if(!d.tips)d.tips=[];if(!d.affinity)d.affinity={colors:{},styles:{}};if(!d.schedule)d.schedule={};if(d.wxLoc===undefined)d.wxLoc=null;if(!d.profile)d.profile={};d.profile.measures=d.profile.measures||{};if(d.profile.faceDetail==null)d.profile.faceDetail="";if(d.profile.bodyDetail==null)d.profile.bodyDetail="";if(!d.profile.sens)d.profile.sens="标准";if(!d.wornTags)d.wornTags={};const _tk=today();Object.keys(d.schedule).forEach(k=>{if(k!==_tk)delete d.schedule[k]});Object.keys(d.wornTags).forEach(k=>{if(k!==_tk)delete d.wornTags[k]});d.items.forEach(i=>{if(!i.formality)i.formality=i.type==="鞋"&&i.name.includes("运动")?"运动":"日常"});return d;}}catch(e){}
+  return seed();
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(DB))}catch(e){toast("存储空间不足，图片过多")}}
+function seed(){
+  const mk=(name,type,seasons,scenes,color,style,icon,f)=>({id:Math.random().toString(36).slice(2,8),
+    name,no:"",photo:null,icon,type,seasons,scenes,colors:[color],style,formality:f||"日常",wearCount:0,threshold:TYPE_WASH[type]});
+  const items=[
+    mk("奶白小西装","外套",["春","秋"],["通勤","正式"],"米","知性","🧥","正式"),
+    mk("樱花针织衫","上衣",["春","秋"],["通勤","约会"],"粉","甜美","👚","日常"),
+    mk("牛仔裤·蓝","下装",["春","秋","冬"],["通勤","休闲"],"蓝","简约","👖","日常"),
+    mk("小白鞋","鞋",["春","夏","秋"],["通勤","休闲","约会"],"白","简约","👟","日常"),
+    mk("运动速干T","上衣",["夏"],["运动"],"灰","运动风","👚","运动"),
+    mk("风衣·驼色","外套",["秋","冬"],["通勤","约会"],"棕","知性","🧥","日常"),
+    mk("黑小脚裤","下装",["春","夏","秋","冬"],["通勤","约会","正式"],"黑","简约","👖","正式"),
+    mk("连帽卫衣","上衣",["春","秋"],["休闲","运动"],"灰","酷飒","👚","运动"),
+    mk("玛丽珍鞋","鞋",["春","秋"],["约会","通勤"],"黑","复古","👟","日常"),
+  ];
+  items.forEach((it,i)=>it.no=String(i+1).padStart(3,"0"));
+  items[4].wearCount=2; items[1].wearCount=1;
+  return {items,profile:{body:"",face:"",styles:[],measures:{},faceDetail:"",bodyDetail:""},log:[],outfitCount:0,
+    affinity:{colors:{},styles:{}},tips:[],schedule:{},wornTags:{},wxLoc:null,shopRecs:null,aiTip:null};
+}
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),1800)}
+function aff(kind,key,val){
+  const a=DB.affinity[kind];a[key]=Math.max(-2,Math.min(2,(a[key]||0)+val));
+}
+function affOf(kind,key){return DB.affinity[kind][key]||0}
+
+/* ================= 视图切换 ================= */
+function switchView(v,btn){
+  document.querySelectorAll(".view").forEach(e=>e.style.display="none");
+  document.getElementById("v-"+v).style.display="block";
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("on"));
+  btn.classList.add("on");
+  if(v==="wash")renderWash(); if(v==="me")renderMe(); if(v==="outfit")renderOutfitView(); if(v==="tips")renderTipsView();
+}
+
+/* ================= 衣橱 ================= */
+let filter={type:"全部"};
+function renderFilters(){
+  const el=document.getElementById("filters");
+  el.innerHTML=["全部",...TYPES].map(t=>`<button class="${filter.type===t?"on":""}" onclick="filter.type='${t}';renderFilters();renderGrid()">${t}</button>`).join("");
+}
+function renderGrid(){
+  const g=document.getElementById("grid");
+  const list=DB.items.filter(i=>filter.type==="全部"||i.type===filter.type);
+  g.innerHTML=list.map(i=>{
+    const dirty=i.wearCount>=i.threshold;
+    const ph=i.photo?`<img src="${i.photo}">`:`<span class="gi">${i.icon}</span>`;
+    return `<div class="item" onclick="openDetail('${i.id}')">
+      <span class="badge">${i.type}</span>
+      <div class="ph">${ph}</div>
+      <div class="nm">${i.name}</div>
+      <div class="no">N°${i.no}${dirty?' · <span class="warn">待洗</span>':""}</div>
+    </div>`;
+  }).join("");
+  document.getElementById("gridEmpty").style.display=list.length?"none":"block";
+  document.getElementById("stItems").textContent=DB.items.length;
+}
+
+/* 添加（含真实照片取色） */
+let draft={photo:null,type:"",seasons:[],scenes:[],colors:[],formality:"日常"};
+function openAdd(){
+  draft={photo:null,type:"",seasons:[],scenes:[],colors:[],style:"",formality:"日常"};
+  document.getElementById("addMask").classList.add("open");
+  document.getElementById("fName").value="";document.getElementById("fNo").value="";
+  document.getElementById("photoPrev").style.display="none";
+  document.getElementById("photoHint").style.display="";
+  document.getElementById("aiSteps").style.display="none";
+  renderPick("typePick",TYPES,"type");renderPick("seasonPick",SEASONS,"seasons");
+  renderPick("sceneTagPick",SCENES,"scenes");renderPick("colorPick",COLORS,"colors");
+}
+function closeAdd(){document.getElementById("addMask").classList.remove("open")}
+document.getElementById("fileInput").addEventListener("change",e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    draft.photo=r.result;
+    const pv=document.getElementById("photoPrev");pv.src=draft.photo;pv.style.display="block";
+    document.getElementById("photoHint").style.display="none";
+    aiTagPhoto();
+  };
+  r.readAsDataURL(f);e.target.value="";
+});
+/* 拍照识别调度：有 Key 用 DeepSeek 视觉（deepseek-flash），无 Key 回退本地取色 */
+function aiTagPhoto(){
+  const box=document.getElementById("aiSteps");box.style.display="block";
+  document.getElementById("aiLine1").style.display="block";
+  document.getElementById("aiLine2").style.display="none";
+  document.getElementById("aiLine3").style.display="none";
+  document.getElementById("aiLine1").textContent=getKey()
+    ?"🤖 DeepSeek 视觉识别中：分析衣物类型、颜色与风格…"
+    :"🤖 AI 分析中：本地提取主色调…";
+  if(getKey()){aiVisionTag();return}
+  aiTagLocal();
+}
+/* DeepSeek 视觉识别：真实调用 deepseek-flash，支持 base64 图片输入 */
+function aiVisionTag(){
+  const sys='你是衣物标签专家。识别图片中的服饰，只返回JSON：{"type":"从 上衣/下装/连衣裙/外套/鞋/配饰 中选一个","seasons":["从 春/夏/秋/冬 选1-3个"],"scenes":["从 通勤/约会/休闲/运动/正式 选1-2个"],"colors":["从 黑/白/米/灰/蓝/粉/棕/红/绿 选1-2个主色"],"style":"从 简约/甜美/酷飒/知性/运动风/复古 中选一个最接近的","formality":"从 正式/日常/运动 中选一个（西服衬衫礼服=正式，卫衣运动服=运动，其余=日常）","name":"给这件衣服起个可爱的中文昵称，不超过6个字"}';
+  dsChat([{role:"user",content:[
+    {type:"text",text:sys},
+    {type:"image_url",image_url:{url:draft.photo}}
+  ]},"deepseek-flash"]).then(txt=>{
+    const o=JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+    draft.type=TYPES.includes(o.type)?o.type:"上衣";
+    draft.seasons=(o.seasons||[]).filter(s=>SEASONS.includes(s)).slice(0,3);if(!draft.seasons.length)draft.seasons=["春","秋"];
+    draft.scenes=(o.scenes||[]).filter(s=>SCENES.includes(s)).slice(0,2);if(!draft.scenes.length)draft.scenes=["休闲"];
+    draft.colors=(o.colors||[]).filter(c=>COLORS.includes(c)).slice(0,2);if(!draft.colors.length)draft.colors=["灰"];
+    draft.style=STYLES.includes(o.style)?o.style:"";
+    draft.formality=FORMALITY.includes(o.formality)?o.formality:"日常";
+    if(o.name&&!document.getElementById("fName").value)document.getElementById("fName").value=o.name;
+    renderPick("typePick",TYPES,"type");renderPick("seasonPick",SEASONS,"seasons");
+    renderPick("sceneTagPick",SCENES,"scenes");renderPick("colorPick",COLORS,"colors");
+    document.getElementById("aiLine2").style.display="block";
+    document.getElementById("aiLine2").textContent=`🤖 DeepSeek 识别完成：${draft.type} · 主色 ${(draft.colors||[]).map(c=>COLOR_NAME[c]||c).join("/")} · 风格 ${draft.style||"未定"} → 已填好标签，并建议昵称「${o.name||""}」`;
+    document.getElementById("aiLine3").style.display="block";
+  }).catch(e=>{
+    document.getElementById("aiLine2").style.display="block";
+    document.getElementById("aiLine2").textContent="⚠️ DeepSeek 视觉调用失败："+e.message+"，改用本地取色";
+    aiTagLocal();
+  });
+}
+/* 本地回退：真实主色提取 Canvas 采样 → HSL → 归类到标签色 */
+function aiTagLocal(){
+  const img=new Image();
+  img.onload=()=>{
+    const c=document.createElement("canvas");c.width=c.height=48;
+    const ctx=c.getContext("2d");ctx.drawImage(img,0,0,48,48);
+    const d=ctx.getImageData(0,0,48,48).data;
+    let r=0,g=0,b=0,n=0;
+    for(let i=0;i<d.length;i+=4){if(d[i+3]<120)continue;r+=d[i];g+=d[i+1];b+=d[i+2];n++}
+    r/=n||1;g/=n||1;b/=n||1;
+    const {tag:col,l:lum}=hslToTag(r,g,b);
+    setTimeout(()=>{
+      draft.colors=[col];
+      draft.seasons=lum<=0.35?["秋","冬"]:(lum>=0.7?["春","夏"]:["春","秋"]);
+      if(!draft.type)draft.type="上衣";
+      document.getElementById("aiLine2").style.display="block";
+      document.getElementById("aiLine2").textContent=`🤖 主色识别完成：${COLOR_NAME[col]}（已自动填入颜色标签）· 明度推断季节：${draft.seasons.join("/")}`;
+      renderPick("typePick",TYPES,"type");renderPick("seasonPick",SEASONS,"seasons");
+      renderPick("sceneTagPick",SCENES,"scenes");renderPick("colorPick",COLORS,"colors");
+      document.getElementById("aiLine3").style.display="block";
+    },600);
+  };
+  img.src=draft.photo;
+}
+function hslToTag(r,g,b){
+  r/=255;g/=255;b/=255;
+  const max=Math.max(r,g,b),min=Math.min(r,g,b);
+  const l=(max+min)/2;
+  const dl=max-min;
+  const s=dl===0?0:dl/(1-Math.abs(2*l-1));
+  let h=0;
+  if(dl!==0){
+    if(max===r)h=((g-b)/dl)%6; else if(max===g)h=(b-r)/dl+2; else h=(r-g)/dl+4;
+    h=Math.round(h*60); if(h<0)h+=360;
+  }
+  if(l<0.18)return {tag:"黑",l};
+  if(s<0.18)return {tag:l>0.85?"白":(l>0.55?"米":"灰"),l};
+  if(h>=330||h<15)return {tag:l>0.55?"粉":"红",l};
+  if(h<50)return {tag:l>0.6?"米":"棕",l};
+  if(h<80)return {tag:"米",l};
+  if(h<170)return {tag:"绿",l};
+  if(h<270)return {tag:"蓝",l};
+  return {tag:l>0.55?"粉":"蓝",l};
+}
+function renderPick(id,list,field){
+  const el=document.getElementById(id);
+  const cur=field==="type"?draft.type:draft[field];
+  el.innerHTML=list.map(v=>{
+    const on=Array.isArray(cur)?cur.includes(v):cur===v;
+    return `<button class="${on?"on":""}" onclick="pick('${id}','${v}','${field}')">${v}</button>`;
+  }).join("");
+}
+function pick(id,v,field){
+  if(field==="type"){draft.type=v;renderPick(id,TYPES,field);return}
+  const arr=draft[field];
+  const i=arr.indexOf(v);
+  if(i>=0)arr.splice(i,1);else arr.push(v);
+  renderPick(id,field==="seasons"?SEASONS:(field==="scenes"?SCENES:COLORS),field);
+}
+function saveItem(){
+  const name=document.getElementById("fName").value.trim();
+  if(!name){toast("先给衣服起个昵称吧");return}
+  if(!draft.type){toast("选一下衣物类型");return}
+  const no=String(DB.items.reduce((m,x)=>Math.max(m,+x.no||0),0)+1).padStart(3,"0");
+  DB.items.push({id:Math.random().toString(36).slice(2,8),name,no,photo:draft.photo,icon:TYPE_ICON[draft.type],
+    type:draft.type,seasons:draft.seasons.length?draft.seasons:["春","夏","秋","冬"],
+    scenes:draft.scenes.length?draft.scenes:["休闲"],colors:draft.colors,style:draft.style||"",formality:draft.formality||"日常",wearCount:0,threshold:TYPE_WASH[draft.type]});
+  save();closeAdd();renderGrid();
+  toast(`已入库：N°${no} ${name}`);
+}
+
+/* 详情 */
+function openDetail(id){
+  const i=DB.items.find(x=>x.id===id);if(!i)return;
+  const dirty=i.wearCount>=i.threshold;
+  document.getElementById("detailSheet").innerHTML=`
+    <h3>${i.name}</h3>
+    <div style="text-align:center;font-size:52px;margin:8px 0">${i.photo?`<img src="${i.photo}" style="max-height:130px;border-radius:12px">`:i.icon}</div>
+    <p style="font-size:13px;color:var(--muted)">编号 N°${i.no} · ${i.type} · 建议每穿 ${i.threshold} 次清洗</p>
+    <p style="margin:6px 0">${i.seasons.map(s=>`<span class="chip">${s}</span>`).join("")}${i.scenes.map(s=>`<span class="chip t">${s}</span>`).join("")}${(i.colors||[]).map(c=>`<span class="chip b">${c}</span>`).join("")}</p>
+    <p class="hint" style="margin-top:8px">累计穿着 ${i.wearCount} 次 ${dirty?'· <b style="color:var(--red)">该清洗啦</b>':`· 还可穿 ${i.threshold-i.wearCount} 次`}</p>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      ${dirty?'<button style="flex:1" onclick="doWash(\''+i.id+'\')">🫧 标记已清洗</button>':''}
+      <button class="ghost" style="flex:0.6" onclick="delItem(\''+i.id+'\')">删除</button>
+      <button class="ghost" style="flex:0.6" onclick="closeDetail()">关闭</button>
+    </div>`;
+  document.getElementById("detailMask").classList.add("open");
+}
+function closeDetail(){document.getElementById("detailMask").classList.remove("open")}
+function delItem(id){DB.items=DB.items.filter(x=>x.id!==id);save();closeDetail();renderGrid();toast("已删除")}
+function doWash(id){const i=DB.items.find(x=>x.id===id);i.wearCount=0;save();closeDetail();renderGrid();toast("已清洗，焕然一新 ✨")}
+
+/* ================= 天气 ================= */
+let wx={temp:18,desc:"多云",src:"演示默认",rain:false,wind:12};
+const WX_PRESET=[
+  {t:30,d:"晴热",rain:false,wind:8,label:"☀️ 炎热 30°"},
+  {t:20,d:"晴朗舒适",rain:false,wind:10,label:"🌤 温暖 20°"},
+  {t:12,d:"微风微凉",rain:false,wind:14,label:"🍃 微凉 12°"},
+  {t:12,d:"阵雨",rain:true,wind:16,label:"🌧 微凉 12° 雨"},
+  {t:2,d:"阴冷",rain:false,wind:20,label:"❄️ 寒冷 2°"},
+];
+function wxTempLevel(){
+  /* 用体感温度判断冷热（借鉴 wardrowbe feels_like），阈值受「怕冷/怕热」敏感度影响 */
+  const t=wx.feels!=null?wx.feels:wx.temp;
+  const {cold,hot}=tempThresholds();
+  if(t>=hot)return "hot";if(t>=17)return "warm";if(t>=cold)return "cool";return "cold";
+}
+function seasonByWx(){const l=wxTempLevel();return l==="hot"?["夏"]:(l==="warm"?["春","夏"]:(l==="cool"?["春","秋"]:["冬"]))}
+function renderWxSim(){
+  document.getElementById("wxTemp").textContent=wx.temp+"°";
+  const swing=wx.tmax!=null&&wx.tmin!=null?wx.tmax-wx.tmin:null;
+  document.getElementById("wxDesc").textContent=(wx.city?wx.city+" · ":"")+wx.desc
+    +(wx.feels!=null&&Math.abs(wx.feels-wx.temp)>=2?` · 体感${wx.feels}°`:"")
+    +(swing!=null&&swing>=8?` · ${wx.tmin}~${wx.tmax}° 温差大`:"")
+    +(wx.rain?" · 有降水":"")+(wx.wind>=17?" · 风大":"");
+  document.getElementById("wxSrc").textContent="来源："+wx.src+(wx.lastUp?" · 更新于 "+wx.lastUp:" · 每30分钟自动刷新");
+  document.getElementById("wxLoc").textContent=wxLoc?"📍 "+wxLoc.name+" · 手动城市（输入框可重新搜索）":"📍 正在自动定位（GPS/IP）· 也可在下方手动搜索城市";
+  document.getElementById("wxsim").innerHTML=WX_PRESET.map((p,idx)=>
+    `<button class="${wx.src==="手动模拟"&&wx.temp===p.t&&wx.rain===p.rain?"on":""}" onclick="wx={temp:${p.t},desc:'${p.d}',rain:${p.rain},wind:${p.wind},src:'手动模拟'};renderWxSim();genOutfit();">${p.label}</button>`).join("")
+    +'<button onclick="fetchWeather()">🔄 立即刷新</button>';
+  const tips=[];
+  if(wx.rain)tips.push("☔ 有降水：AI 已避免浅色鞋，外套必搭");
+  if(!wx.rain&&wx.pop>=50)tips.push("🌧 降水概率 "+wx.pop+"%：外套建议选防水/易穿脱款");
+  if(wx.wind>=17)tips.push("💨 风力较大：外套已强制加入");
+  if(wx.tmax!=null&&wx.tmin!=null&&wx.tmax-wx.tmin>=8)tips.push("🌡 早晚温差 "+(wx.tmax-wx.tmin)+"°：推荐可穿脱的中间层（开衫/衬衫）");
+  if(wx.temp>=28)tips.push("🥵 高温：优先透气材质与浅色");
+  if(wx.temp<=5)tips.push("🧣 低温：建议再加围巾等配饰");
+  document.getElementById("wxTip").textContent=tips.join("；")||"天气正常，放心出门";
+}
+/* 定位三级策略：手动城市 > 浏览器 GPS > IP 兜底（城市名显示用 reverse geocoding） */
+let wxLoc=DB.wxLoc||null; /* {name,latitude,longitude,src} */
+async function loadWxAt(la,lo,cityName,src){
+  const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m,apparent_temperature,weather_code,precipitation,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1`);
+  const j=await r.json(),c=j.current,dy=j.daily||{};
+  const codes={0:"晴",1:"多云",2:"多云",3:"阴",45:"雾",51:"小雨",61:"雨",63:"雨",65:"大雨",71:"雪",80:"阵雨"};
+  wx={temp:Math.round(c.temperature_2m),desc:codes[c.weather_code]||"多云",
+    rain:(c.precipitation||0)>0.2,wind:Math.round(c.wind_speed_10m),src:src,
+    feels:Math.round(c.apparent_temperature!=null?c.apparent_temperature:c.temperature_2m),
+    tmax:dy.temperature_2m_max?Math.round(dy.temperature_2m_max[0]):null,
+    tmin:dy.temperature_2m_min?Math.round(dy.temperature_2m_min[0]):null,
+    pop:dy.precipitation_probability_max?(dy.precipitation_probability_max[0]||0):0,
+    city:cityName||wx.city,lastUp:new Date().toTimeString().slice(0,5)};
+  renderWxSim();
+}
+async function reverseCity(la,lo){
+  try{const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${la}&longitude=${lo}&localityLanguage=zh`);
+    const j=await r.json();return j.city||j.locality||j.principalSubdivision||"";}catch(e){return ""}
+}
+async function fetchWeather(){
+  /* 优先级1：用户手动选择的城市 */
+  if(wxLoc){try{await loadWxAt(wxLoc.latitude,wxLoc.longitude,wxLoc.name,"Open-Meteo · 手动城市 "+wxLoc.name);return}catch(e){}}
+  /* 优先级2：浏览器 GPS 定位 */
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      try{
+        const {latitude:la,longitude:lo}=pos.coords;
+        const city=await reverseCity(la,lo);
+        await loadWxAt(la,lo,city,"Open-Meteo · GPS 定位"+(city?" · "+city:""));
+      }catch(e){ipFallback()}
+    },()=>{ipFallback()},{timeout:6000});
+  }else ipFallback();
+}
+async function ipFallback(){
+  /* 优先级3：IP 归属城市定位（无需授权，精度到城市级），双服务兜底 */
+  try{
+    const r=await fetch("https://ipapi.co/json/");
+    const j=await r.json();
+    if(j.latitude&&j.longitude){await loadWxAt(j.latitude,j.longitude,j.city,"Open-Meteo · IP 定位 · "+(j.city||""));return}
+  }catch(e){}
+  try{
+    if(location.protocol!=="https:"){
+      const r=await fetch("http://ip-api.com/json/?lang=zh-CN&fields=status,city,lat,lon");
+      const j=await r.json();
+      if(j.status==="success"&&j.lat){await loadWxAt(j.lat,j.lon,j.city,"Open-Meteo · IP 定位 · "+(j.city||""));return}
+    }
+  }catch(e){}
+  document.getElementById("wxLoc").textContent="📍 自动定位不可用，请在下方输入城市名";
+}
+/* 中国主要城市离线表：手动定位优先本地精确匹配（Open-Meteo 中文地理编码缺大城市数据，如「长沙」只能搜到同名小镇） */
+const CITY_DB={"北京":[39.90,116.41],"上海":[31.23,121.47],"天津":[39.13,117.20],"重庆":[29.56,106.55],
+"广州":[23.13,113.26],"深圳":[22.54,114.06],"珠海":[22.27,113.58],"佛山":[23.02,113.12],"东莞":[23.02,113.75],"惠州":[23.11,114.42],"中山":[22.52,113.39],
+"杭州":[30.27,120.16],"宁波":[29.87,121.54],"温州":[28.00,120.70],"嘉兴":[30.75,120.76],"金华":[29.08,119.65],"绍兴":[30.03,120.58],"台州":[28.66,121.42],
+"南京":[32.06,118.80],"苏州":[31.30,120.58],"无锡":[31.49,120.31],"常州":[31.81,119.96],"徐州":[34.20,117.28],"南通":[32.01,120.89],
+"成都":[30.57,104.07],"绵阳":[31.47,104.68],"武汉":[30.59,114.31],"宜昌":[30.69,111.29],
+"长沙":[28.23,112.94],"株洲":[27.83,113.13],"湘潭":[27.83,112.94],"岳阳":[29.36,113.13],
+"西安":[34.34,108.94],"咸阳":[34.33,108.71],"郑州":[34.75,113.63],"洛阳":[34.62,112.45],
+"济南":[36.65,117.12],"青岛":[36.07,120.38],"烟台":[37.46,121.44],"潍坊":[36.71,119.16],
+"福州":[26.07,119.30],"厦门":[24.48,118.09],"泉州":[24.87,118.68],"合肥":[31.82,117.23],"南昌":[28.68,115.86],
+"昆明":[25.04,102.71],"贵阳":[26.65,106.63],"遵义":[27.73,106.93],"南宁":[22.82,108.32],"桂林":[25.28,110.29],
+"海口":[20.04,110.34],"三亚":[18.25,109.51],"太原":[37.87,112.55],"石家庄":[38.04,114.51],"保定":[38.87,115.48],
+"唐山":[39.63,118.18],"呼和浩特":[40.84,111.75],"哈尔滨":[45.80,126.53],"长春":[43.88,125.32],"沈阳":[41.80,123.43],"大连":[38.91,121.61],
+"兰州":[36.06,103.83],"西宁":[36.62,101.78],"银川":[38.49,106.23],"乌鲁木齐":[43.83,87.62],"拉萨":[29.65,91.14],"赣州":[25.83,114.93],
+"香港":[22.32,114.17],"澳门":[22.20,113.55],"台北":[25.03,121.57]};
+function useCity(name,la,lo){
+  wxLoc={name,latitude:la,longitude:lo,src:"手动"};
+  DB.wxLoc=wxLoc;save();
+  loadWxAt(la,lo,name,"Open-Meteo · 手动城市 "+name);
+  toast("已切换到 "+name+" 的实时天气");
+}
+async function searchCity(){
+  const q0=document.getElementById("citySearch").value.trim();
+  if(!q0)return toast("请输入城市名");
+  const q=q0.replace(/(市|省|特别行政区)$/,"");
+  /* 1) 本地城市表：精确匹配，零延迟且结果可靠 */
+  if(CITY_DB[q]){useCity(q,CITY_DB[q][0],CITY_DB[q][1]);return}
+  /* 2) 兜底：在线地理编码，按人口排序并优先行政中心 */
+  try{
+    const r=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=10&language=zh&format=json`);
+    const j=await r.json();
+    if(j.results&&j.results.length){
+      const sc=r=>(r.population||0)+(r.feature_code==="PPLA"?5e8:r.feature_code==="PPLA2"?1e8:r.feature_code==="PPLA3"?5e7:0);
+      const c=[...j.results].sort((a,b)=>sc(b)-sc(a))[0];
+      useCity(c.name+(c.admin1&&c.admin1!==c.name?" · "+c.admin1:""),c.latitude,c.longitude);
+      return;
+    }
+    toast("没找到「"+q0+"」，可试试就近的大城市");
+  }catch(e){toast("城市搜索失败："+e.message)}
+}
+function clearLoc(){
+  wxLoc=null;DB.wxLoc=null;save();
+  document.getElementById("citySearch").value="";
+  toast("已清除手动城市，改用自动定位");
+  fetchWeather();
+}
+
+/* ================= 搭配引擎（升级版） ================= */
+let curScene="通勤";
+function clean(i){return i.wearCount<i.threshold}
+function yesterdayNames(){return DB.log[0]?DB.log[0].items:[]}
+/* 色彩和谐度：中性百搭、同色系稳、互补点缀，红绿/蓝粉等冲突扣分 */
+function colorScore(colors){
+  const cs=colors.filter(Boolean);if(cs.length<2)return 1;
+  if(cs.every(c=>NEUTRAL.includes(c)))return 2;                 // 全中性：高级稳
+  const strong=cs.filter(c=>!NEUTRAL.includes(c));
+  if(!strong.length)return 1.8;
+  let s=1.2;
+  if(strong.length>=2){
+    const hues=strong.map(c=>HUE[c]);
+    const diff=Math.abs(hues[0]-hues[1]);
+    const d=Math.min(diff,360-diff);
+    if(d<30)s+=0.4;        // 同色系
+    else if(d>150)s+=0.6;  // 互补撞色点睛
+    else s-=0.8;           // 邻近强色易冲突
+  }else s+=0.6;            // 一个中性+一个彩色：经典
+  return Math.max(0,s);
+}
+/* ============ 单件预排序（借鉴 wardrowbe item_scorer：多维乘法评分） ============ */
+function lastWornDaysAgo(name){
+  for(const e of DB.log){if(e.items.includes(name)){return Math.max(0,Math.round((new Date()-new Date(e.date.replace("月","/").replace("日","")))/86400000))||0.5}}
+  return 999;
+}
+function seasonScore(i){
+  const need=seasonByWx();
+  if(!i.seasons.length||i.seasons.some(s=>need.includes(s)))return 1;
+  const ADJ={"夏":["春"],"春":["夏","秋"],"秋":["夏","冬"],"冬":["秋"]};
+  if(i.seasons.some(s=>(ADJ[need[0]]||[]).includes(s)))return 0.6;  // 相邻季节：可穿
+  return 0.2;
+}
+function formalityScore(i,scene){
+  const allowed=SCENE_FORMALITY[scene]||["日常"];
+  if(allowed.includes(i.formality||"日常"))return 1;
+  const d=Math.abs(FORMALITY.indexOf(i.formality||"日常")-Math.min(...allowed.map(a=>FORMALITY.indexOf(a))));
+  return d===1?0.6:0.2;
+}
+function recencyScore(i){
+  const days=lastWornDaysAgo(i.name);
+  if(days>999)return 1;                    // 从未穿过：优先激活
+  return Math.min(1,0.15+0.85*days/4);     // 4 天内递减（借鉴 wardrowbe recency）
+}
+function usageScore(i){
+  const counts=DB.items.map(x=>x.wearCount);const med=counts.sort((a,b)=>a-b)[Math.floor(counts.length/2)]||0;
+  if(med<=1)return 1;
+  const r=i.wearCount/med;
+  return r<=0.3?1.15:(r<=0.7?1.05:(r<=1.5?1:0.9));  // 闲置衣物优先被激活
+}
+function itemScore(i,scene){
+  const w=seasonScore(i)*formalityScore(i,scene)*(wx.temp<=tempThresholds().cold&&i.type==="外套"?1.2:1)
+    *recencyScore(i)*usageScore(i)
+    *(1+affOf("colors",(i.colors||[])[0])*0.08+affOf("styles",i.style)*0.08);
+  return Math.max(0.05,w);
+}
+/* 生成候选 → 多维评分 → 取前三套（按场景） */
+function genCandidates(scene){
+  const needSeasons=seasonByWx();
+  const pool=DB.items.filter(i=>clean(i));
+  const fit=i=>i.scenes.includes(scene);
+  /* 加权随机：预排序后偏向高分，但保留多样性（借鉴 wardrowbe「预排序→LLM 精选」思路） */
+  const pickFrom=(types,exclude)=>{
+    let c=pool.filter(i=>fit(i)&&types.includes(i.type)&&!exclude.includes(i.id));
+    if(!c.length)return null;
+    c=c.map(i=>({i,s:itemScore(i,scene)*(i.seasons.some(x=>needSeasons.includes(x))?1:0.45)})).sort((a,b)=>b.s-a.s);
+    const roll=Math.random();
+    const idx=roll<0.5?0:(roll<0.8?Math.min(1,c.length-1):Math.min(2+Math.floor(Math.random()*(c.length-2)),c.length-1));
+    return c[idx].i;
+  };
+  const sets=[];
+  for(let t=0;t<18&&sets.length<3;t++){
+    const used=[];const set=[];
+    const needOuter=wx.temp<tempThresholds().cold||wx.rain||wx.wind>=17;
+    if(needOuter||Math.random()<0.5){const o=pickFrom(["外套"],used);if(o){set.push(o);used.push(o.id)}}
+    const dress=pickFrom(["连衣裙"],used);
+    const top=pickFrom(["上衣"],used),bottom=pickFrom(["下装"],used);
+    if(dress&&(!top||!bottom)){set.unshift(dress);used.push(dress.id)}
+    else{if(top){set.unshift(top);used.push(top.id)}if(bottom){set.unshift(bottom);used.push(bottom.id)}}
+    const shoe=pickFrom(["鞋"],used);
+    if(shoe){set.push(shoe);used.push(shoe.id)}
+    if(!set.length)continue;
+    /* 雨天避开浅色鞋 */
+    const wetRisk=shoe&&wx.rain&&!NEUTRAL.includes(shoe.colors[0])&&shoe.colors[0]!=="黑"&&shoe.colors[0]!=="棕";
+    if(wetRisk){if(pool.some(i=>i.type==="鞋"&&fit(i)&&NEUTRAL.includes(i.colors[0])))continue}
+    const key=set.map(i=>i.id).sort().join(",");
+    if(!sets.some(s=>s.key===key))sets.push({key,set});
+  }
+  return sets.map(s=>({...s,score:scoreSet(s.set)})).sort((a,b)=>b.score.total-a.score.total).slice(0,3);
+}
+function scoreSet(set){
+  const pref=DB.profile.styles||[];
+  const yesterday=yesterdayNames();
+  const colors=set.flatMap(i=>i.colors||[]);
+  let styleBonus=0;
+  const styles=set.map(i=>i.style).filter(Boolean);
+  if(styles.length&&styles.every(s=>s===styles[0]))styleBonus=2;              // 全套同风格
+  const affSum=set.reduce((s,i)=>s+affOf("colors",(i.colors||[])[0])+affOf("styles",i.style),0);
+  const repeatPen=set.filter(i=>yesterday.includes(i.name)).length*2.5;       // 避开昨天单品
+  const weatherOk=(wx.temp<tempThresholds().cold||wx.rain||wx.wind>=17)?(set.some(i=>i.type==="外套")?2:-2):1;
+  const total=Math.round(58+colorScore(colors)*7+styleBonus*3+affSum*6+weatherOk*3-repeatPen);
+  return {total,colors:colorScore(colors),styleBonus,affSum,repeatPen,weatherOk};
+}
+/* ================= 今日行程 + 分时段推荐 ================= */
+const TIMES=["全天","早上","上午","中午","下午","晚上"];
+function scheduleToday(){return (DB.schedule&&DB.schedule[today()])||[]}
+function renderScheduleEditor(){
+  const tEl=document.getElementById("schTime"),sEl=document.getElementById("schScene");
+  if(tEl&&!tEl.options.length){
+    tEl.innerHTML=TIMES.map(t=>`<option>${t}</option>`).join("");
+    sEl.innerHTML=SCENES.map(s=>`<option>${s}</option>`).join("");
+  }
+  const list=scheduleToday();
+  document.getElementById("schList").innerHTML=list.length?list.map((s,i)=>
+    `<div class="insrow"><span>${s.time} · <b>${s.scene}</b></span><span><button class="sm ghost" onclick="delSchedule(${i})">删除</button></span></div>`).join("")
+    :'<p class="hint" style="margin-top:6px">暂无行程，将按下方选的场合出一套整体推荐</p>';
+}
+function addSchedule(){
+  const time=document.getElementById("schTime").value;
+  const scene=document.getElementById("schScene").value;
+  (DB.schedule[today()]||(DB.schedule[today()]=[])).push({time,scene});
+  save();renderScheduleEditor();
+  toast("已添加行程，正在按时段重新推荐…");
+  genOutfit();
+}
+function delSchedule(i){const a=DB.schedule[today()]||[];a.splice(i,1);save();renderScheduleEditor();genOutfit();}
+/* 身形脸型适配话术（本地引擎使用） */
+function fitAdvice(body,face){
+  const b={"梨形":"选 A 字裙/直筒裤弱化下半身，上半身加亮点","苹果形":"V 领拉长脖颈线条，高腰线放胸下","沙漏形":"大胆展示腰线，收腰款最能体现优势","直筒形":"用腰带/束腰制造曲线感","倒三角":"下半身选阔腿/百褶平衡肩宽"};
+  const f={"圆脸":"V 领和大耳环拉长脸部线条","鹅蛋脸":"领型自由度高，尽情尝试","方脸":"圆领/弧形项链柔化棱角","心形脸":"船领配中等大小耳饰","长脸":"横向领口平衡脸长"};
+  const bs=body&&b[body]||"",fs=face&&f[face]||"";
+  return bs+(bs&&fs?"；":"")+fs;
+}
+let sections=[];
+function genOutfit(force){
+  const sch=scheduleToday();
+  const list=sch.length?sch.map(s=>({time:s.time,scene:s.scene})):[{time:"",scene:curScene}];
+  sections=list.map(s=>({time:s.time,scene:s.scene,candidates:genCandidates(s.scene),planIdx:0}));
+  if(sections.some(x=>x.candidates.length))DB.outfitCount++;
+  save();
+  renderSections();
+  runAIPlans();
+}
+function genOne(si){
+  const sec=sections[si];
+  sec.candidates=genCandidates(sec.scene);sec.planIdx=0;
+  renderSections();
+  if(getKey())aiOutfitPlanFor(sec.scene).then(ps=>{
+    if(ps&&!ps.every(p=>sec.candidates.some(c=>c.key===p.key))){
+      sec.candidates=[...ps.filter(p=>!sec.candidates.some(c=>c.key===p.key)),...sec.candidates].slice(0,3);
+      sec.planIdx=0;renderSections()}
+  });
+}
+async function runAIPlans(){
+  if(!getKey())return;
+  for(const sec of sections){
+    const ps=await aiOutfitPlanFor(sec.scene);
+    if(ps&&!ps.every(p=>sec.candidates.some(c=>c.key===p.key))){
+      sec.candidates=[...ps.filter(p=>!sec.candidates.some(c=>c.key===p.key)),...sec.candidates].slice(0,3);
+      sec.planIdx=0}
+  }
+  renderSections();dsStatusUpdate();
+}
+/* ================= DeepSeek 大模型接入 ================= */
+function getKey(){return localStorage.getItem("ds_key")||""}
+function saveKey(){
+  localStorage.setItem("ds_key",document.getElementById("dsKey").value.trim());
+  dsStatusUpdate();toast("API Key 已保存");
+  genOutfit();
+}
+function dsStatusUpdate(){
+  const k=getKey();
+  document.getElementById("dsStatus").textContent=k
+    ?"✅ 已启用：穿搭推荐与每日资讯由 DeepSeek 生成"
+    :"未配置，当前使用本地智能引擎";
+}
+async function dsChat(messages,model,maxTokens){
+  const r=await fetch("https://api.deepseek.com/chat/completions",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","Authorization":"Bearer "+getKey()},
+    body:JSON.stringify({model:model||"deepseek-chat",messages,temperature:0.9,max_tokens:maxTokens||600})
+  });
+  if(!r.ok)throw new Error("HTTP "+r.status+(r.status===401?"（Key 无效）":""));
+  const j=await r.json();
+  return j.choices[0].message.content;
+}
+function wardrobeBrief(scene){
+  /* 借鉴 wardrowbe 两阶段推荐：先本地预排序，只把 top20 发给大模型（省 token 且质量更高） */
+  return DB.items.filter(i=>clean(i)&&(!scene||i.scenes.includes(scene)))
+    .map(i=>({i,s:itemScore(i,scene||"休闲")})).sort((a,b)=>b.s-a.s).slice(0,20)
+    .map(({i})=>({id:i.id,name:i.name,type:i.type,colors:i.colors,style:i.style,formality:i.formality,seasons:i.seasons,scenes:i.scenes}));
+}
+async function aiOutfitPlanFor(scene){
+  if(!getKey())return null;
+  /* 造型原则与输出格式借鉴 wardrowbe prompts/recommendation.txt */
+  const sys=`你是专业穿搭顾问，为用户从衣橱中组出 3 套完整造型（按优劣排序，第 1 套最强，各套核心单品不得重复）。
+
+造型原则：
+- 色彩：全套不超过 3 个颜色（黑白灰米棕等中性色不计入）；可选同色系深浅、中性打底+一个彩色点睛、相近色和谐
+- 松紧平衡：上衣宽松则下装利落，反之亦然；不要上下同时宽松
+- 层次：天气需要时按 内层+中间层+外套 思路搭，外套脱掉后整体依然成立
+- 正式度：匹配场合（通勤/正式=利落，约会=精致，休闲=放松，运动=机能）
+- 身形脸型：优先参考「身材档案」的测量数据与视觉特征（如梨形选 A 字/直筒、圆脸多用 V 领、方脸用圆领、沙漏形露腰线、小个子用高腰线）
+- 每件单品都要有存在的理由，不要凑数
+
+只返回 JSON：{"outfits":[{"items":["id"],"headline":"5字内造型标题","reason":"40字内搭配理由","fit":"40字内说明如何修饰身形脸型","tip":"一条具体的穿法细节（如塞衣角/挽袖/叠戴），每次换个说法","score":0-100}]}`;
+  const user=JSON.stringify({天气:wx,场合:scene,身形:DB.profile.body||"未填",脸型:DB.profile.face||"未填",
+    身材档案:fitProfile()||"未提供",温度敏感度:DB.profile.sens||"标准",
+    风格偏好:DB.profile.styles,历史反馈画像:DB.affinity,昨日已穿:yesterdayNames(),
+    衣橱按匹配度排序:wardrobeBrief(scene)});
+  try{
+    const txt=await dsChat([{role:"system",content:sys},{role:"user",content:user}],null,900);
+    const o=JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+    const plans=[];
+    for(const it of (o.outfits||[]).slice(0,3)){
+      const set=(it.items||[]).map(id=>DB.items.find(x=>x.id===id)).filter(Boolean);
+      if(set.length<2||!set.some(i=>i.type==="上衣"||i.type==="连衣裙"))continue;
+      const key=set.map(i=>i.id).sort().join(",");
+      const local=scoreSet(set);
+      plans.push({key,set,headline:it.headline,
+        score:{...local,total:Math.min(98,Math.max(60,it.score||local.total)),ai:true},
+        reason:it.reason,fit:it.fit,tip:it.tip});
+    }
+    return plans.length?plans:null;
+  }catch(e){
+    document.getElementById("dsStatus").textContent="⚠️ DeepSeek 调用失败："+e.message+"，已回退本地引擎";
+    return null;
+  }
+}
+function renderOutfitView(){
+  renderWxSim();
+  renderScheduleEditor();
+  document.getElementById("scenePick").innerHTML=SCENES.map(s=>
+    `<button class="${curScene===s?"on":""}" onclick="curScene='${s}';genOutfit()">${s}</button>`).join("");
+  if(!sections.length)genOutfit();
+  renderTip();
+}
+function renderSections(){
+  const el=document.getElementById("outfitBody");
+  if(!sections.length){el.innerHTML='<div class="empty">先添加今日行程或选择场合</div>';return}
+  el.innerHTML=sections.map((sec,si)=>sectionHTML(sec,si)).join("");
+}
+function sectionHTML(sec,si){
+  const title=`${sec.time&&sec.time!=="全天"?sec.time+" · ":""}${sec.scene}`;
+  let h=`<div style="${si>0?"border-top:1px solid var(--border);margin-top:14px;":""}padding-top:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3 style="margin:0">${title}</h3>
+      <button class="sm ghost" onclick="genOne(${si})">换一套</button></div>`;
+  const cands=sec.candidates;
+  if(!cands.length){h+='<div class="empty">衣橱里还没有适合「'+sec.scene+'」的干净衣服，去录入或清洗一下吧</div></div>';return h}
+  const plan=cands[sec.planIdx];
+  const reasons=[];
+  if(plan.score.ai)reasons.unshift("<b>DeepSeek 生成</b>"+(plan.headline?`「${plan.headline}」`:"")+"："+(plan.reason||"由大模型结合你的档案与实时天气定制"));
+  const fa=fitAdvice(DB.profile.body,DB.profile.face);
+  if(fa)reasons.push("<b>身形脸型适配</b>："+(plan.fit||fa));
+  if(plan.score.weatherOk>=2)reasons.push("<b>天气应对</b>：已按降水/风力/温度安排外套");
+  if(plan.score.colors>=1.8)reasons.push("<b>色彩</b>："+(plan.set.flatMap(i=>i.colors||[]).slice(0,2).map(c=>COLOR_NAME[c]||c).join(" + "))+" 组合和谐度好");
+  if(plan.score.styleBonus)reasons.push("<b>风格</b>：整套保持统一调性");
+  if(plan.score.affSum>0.2)reasons.push("<b>偏好学习</b>：偏向你点赞过的颜色/风格");
+  if(plan.score.repeatPen>0)reasons.push("<b>轮换</b>：尽量避开你昨天刚穿的单品");
+  if(!reasons.length)reasons.push("<b>基础匹配</b>：季节与场合符合");
+  h+=`<div class="planbar">${cands.map((c,i)=>`<button class="${i===sec.planIdx?"on":""}" onclick="sections[${si}].planIdx=${i};renderSections()">方案 ${"ABC"[i]} · ${c.score.total}分</button>`).join("")}</div>
+    <div class="score"><span class="num">${plan.score.total}</span><span class="hint">AI 综合评分<br>（色彩·风格·天气·偏好）</span></div>
+    <div class="outfit">${plan.set.map(i=>`
+      <div class="slot"><div class="emoji">${i.photo?`<img src="${i.photo}">`:i.type.slice(0,1)}</div><div class="nm">${i.name}</div><div class="no" style="font-size:10px;color:var(--muted);letter-spacing:.06em">N°${i.no} · ${i.type}</div></div>`).join("")}</div>
+    <div class="why"><b>AI 搭配理由：</b>${reasons.join("；")}。</div>
+    ${plan.tip?`<div class="why" style="border-left:3px solid var(--amber);background:var(--amber-soft)"><b>💡 穿法贴士：</b>${plan.tip}</div>`:""}
+    <div class="fbrow">
+      <button class="like" onclick="feedback(${si},1)">👍 喜欢这套</button>
+      <button class="dis" onclick="feedback(${si},-1)">👎 不合心意</button>
+      <button onclick="checkOutfit(${si})">✅ 就穿这套</button>
+    </div></div>`;
+  return h;
+}
+function feedback(si,v){
+  const sec=sections[si];if(!sec)return;
+  const plan=sec.candidates[sec.planIdx];if(!plan)return;
+  plan.set.forEach(i=>{aff("colors",(i.colors||[])[0]||"",v*0.4);if(i.style)aff("styles",i.style,v*0.4)});
+  save();renderMe();
+  toast(v>0?"已记住：你偏好这类颜色与风格 ✨":"已记住：下次减少这类组合");
+  renderSections();
+}
+function checkOutfit(si){
+  const sec=sections[si];if(!sec)return;
+  const plan=sec.candidates[sec.planIdx];if(!plan)return;
+  /* 自检修复：同一时段同一方案当天只计一次打卡，防止连点虚增穿着次数 */
+  DB.wornTags=DB.wornTags||{};
+  const tag=sec.time+"|"+sec.scene+"|"+plan.key;
+  const worn=DB.wornTags[today()]||[];
+  if(worn.includes(tag))return toast("这个时段的这套已经打卡过啦 ✨");
+  worn.push(tag);DB.wornTags[today()]=worn;
+  plan.set.forEach(i=>{i.wearCount++;DB.log.unshift({date:today(),items:plan.set.map(x=>x.name),scene:sec.scene,wx:wx.temp+"° "+wx.desc+(wx.rain?" 雨":"")})});
+  DB.log=DB.log.slice(0,30);save();
+  const dirty=plan.set.filter(i=>i.wearCount>=i.threshold);
+  toast(dirty.length?`已打卡！${dirty.map(i=>i.name).join("、")} 该清洗啦 🫧`:"已打卡，今天的穿搭记录好啦 ✨");
+  renderGrid();
+}
+
+/* ================= 提醒 ================= */
+function today(){const d=new Date();return `${d.getMonth()+1}月${d.getDate()}日`}
+function renderWash(){
+  const need=DB.items.filter(i=>i.wearCount>0).sort((a,b)=>b.wearCount/b.threshold-a.wearCount/a.threshold);
+  document.getElementById("washList").innerHTML=need.length?need.map(i=>{
+    const p=Math.min(100,Math.round(i.wearCount/i.threshold*100));
+    const dirty=p>=100;
+    return `<div class="washrow"><span class="e">${i.photo?`<img src="${i.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:i.type.slice(0,1)}</span>
+      <div class="info"><div class="nm">${i.name} <span style="color:var(--muted);font-size:11px">N°${i.no}</span></div>
+      <div style="font-size:11px;color:${dirty?"var(--red)":"var(--muted)"}">${dirty?"已到清洗次数，该洗啦":`穿 ${i.wearCount}/${i.threshold} 次`}</div>
+      <div class="bar"><i class="${dirty?"danger":""}" style="width:${p}%"></i></div></div>
+      ${dirty?`<button class="sm" onclick="doWash('${i.id}');renderWash()">已洗</button>`:""}</div>`;
+  }).join(""):'<div class="empty">打卡穿搭后，这里会显示每件衣服的清洗进度</div>';
+  const overdue=DB.items.filter(i=>i.wearCount>=i.threshold);
+  const alert=document.getElementById("washAlert");
+  if(overdue.length){alert.style.display="block";
+    alert.innerHTML=`<h3>清洗提醒</h3><p style="font-size:13px">以下衣物该清洗了：${overdue.map(i=>i.name).join("、")}</p>`;}
+  else alert.style.display="none";
+  document.getElementById("wearLog").innerHTML=DB.log.length?DB.log.map(l=>
+    `<p style="font-size:12px;color:var(--muted);padding:5px 0;border-bottom:1px solid var(--border)"><b style="color:var(--ink)">${l.date} · ${l.scene} · ${l.wx}</b>：${l.items.join(" + ")}</p>`).join("")
+    :'<div class="empty">还没有穿着记录</div>';
+}
+
+/* ================= 我的：学习画像 + 洞察 ================= */
+function renderMe(){
+  document.getElementById("stWorn").textContent=DB.log.length;
+  document.getElementById("stOutfits").textContent=DB.outfitCount;
+  const learned=document.getElementById("learned");
+  const likeC=Object.entries(DB.affinity.colors).filter(([k,v])=>v>0.3);
+  const likeS=Object.entries(DB.affinity.styles).filter(([k,v])=>v>0.3);
+  const noC=Object.entries(DB.affinity.colors).filter(([k,v])=>v<-0.3);
+  const rows=[];
+  if(likeC.length)rows.push(`喜欢颜色：${likeC.map(([c])=>COLOR_NAME[c]||c).join("、")}`);
+  if(likeS.length)rows.push(`偏好风格：${likeS.map(([s])=>s).join("、")}`);
+  if(noC.length)rows.push(`近期不喜欢：${noC.map(([c])=>c+"色系").join("、")}`);
+  if(!rows.length)learned.innerHTML='<div class="empty">还没有足够反馈，多给搭配点赞/点踩吧</div>';
+  else learned.innerHTML=rows.map(r=>`<div class="insrow"><span>${r}</span></div>`).join("");
+  /* 洞察 */
+  const ins=[];
+  const worn=[...DB.items].sort((a,b)=>b.wearCount-a.wearCount)[0];
+  if(worn&&worn.wearCount>0)ins.push(["最常穿",`${worn.name}（${worn.wearCount} 次）`]);
+  const idle=DB.items.filter(i=>i.wearCount===0);
+  if(idle.length)ins.push(["待激活",`${idle.length} 件从未穿过：${idle.slice(0,2).map(i=>i.name).join("、")}${idle.length>2?" 等":""}`]);
+  const overdue=DB.items.filter(i=>i.wearCount>=i.threshold);
+  ins.push(["待清洗",overdue.length?`${overdue.length} 件：${overdue.map(i=>i.name).join("、")}`:"一切干净 ✓"]);
+  const gaps=[];
+  SCENES.forEach(sc=>{
+    const p=DB.items.filter(i=>clean(i)&&i.scenes.includes(sc));
+    if(p.length&&!p.some(i=>i.type==="鞋"))gaps.push(sc+" 缺鞋");
+    if(p.length&&!p.some(i=>i.type==="上衣"||i.type==="连衣裙"))gaps.push(sc+" 缺上装");
+  });
+  ins.push(["场景缺口",gaps.length?gaps.join("；"):"各场景配置完整 ✓"]);
+  document.getElementById("insights").innerHTML=ins.map(([k,v])=>`<div class="insrow"><span style="color:var(--muted)">${k}</span><span style="text-align:right">${v}</span></div>`).join("");
+  renderProfilePicks();
+}
+function toggleStyle(s){
+  const a=DB.profile.styles;const i=a.indexOf(s);
+  if(i>=0)a.splice(i,1);else a.push(s);
+  save();renderProfilePicks();
+}
+/* ===== 身材数据 → 体型推断（测量数据比自选标签更可靠） ===== */
+function renderProfilePicks(){
+  document.getElementById("bodyPick").innerHTML=BODIES.map(b=>`<button class="${DB.profile.body===b?"on":""}" onclick="DB.profile.body='${b}';save();renderProfilePicks();renderTip()">${b}</button>`).join("");
+  document.getElementById("facePick").innerHTML=FACES.map(f=>`<button class="${DB.profile.face===f?"on":""}" onclick="DB.profile.face='${f}';save();renderProfilePicks();renderTip()">${f}</button>`).join("");
+  document.getElementById("stylePick").innerHTML=STYLES.map(s=>`<button class="${DB.profile.styles.includes(s)?"on":""}" onclick="toggleStyle('${s}')">${s}</button>`).join("");
+  document.getElementById("sensPick").innerHTML=["怕冷","标准","怕热"].map(t=>`<button class="${DB.profile.sens===t?"on":""}" onclick="DB.profile.sens='${t}';save();renderProfilePicks();genOutfit()">${t}</button>`).join("");
+  const m=DB.profile.measures||{};
+  [["mH","height"],["mW","weight"],["mS","shoulder"],["mWa","waist"],["mHp","hip"]].forEach(([id,k])=>{if(m[k])document.getElementById(id).value=m[k]});
+  const mh=document.getElementById("measureHint");
+  if(DB.profile.body&&DB.profile.bodySource==="measure")mh.textContent="🧮 体型由测量数据推断："+DB.profile.body+"（点上方标签可手动覆盖）";
+  else mh.textContent=DB.profile.body?"当前体型：手动选择（填测量数据可获得更精准推断）":"可先手动选，或填测量数据自动推断";
+  const pa=document.getElementById("photoAnalysis");
+  if(DB.profile.bodyDetail||DB.profile.faceDetail)pa.textContent="已存分析："+(DB.profile.bodyDetail?"体型✓ ":"")+(DB.profile.faceDetail?"脸型✓":"");
+}
+function deriveShape(h,w,sh,wa,hp){
+  const bmi=w&&h?(w/((h/100)**2)).toFixed(1):null;
+  const whr=wa&&hp?(wa/hp).toFixed(2):null;
+  let shape=null,why=[];
+  if(hp&&wa){
+    if(sh&&sh>=hp*1.02){shape="倒三角";why.push("肩宽明显大于臀围")}
+    else if(wa/hp<=0.75&&(!hp||!sh||sh<hp*1.02)){shape="沙漏形";why.push("腰臀比 "+whr+"，腰线明显");}
+    else if(wa/hp>=0.85){shape="苹果形";why.push("腰臀比 "+whr+"，腰腹较饱满")}
+  }
+  if(!shape&&hp&&wa&&hp-wa>=18){shape="梨形";why.push("臀围比腰围大 "+(hp-wa)+"cm，下半身较丰满")}
+  if(!shape){shape="直筒形";why.push("三围差值较小，线条平直")}
+  return {shape,bmi,whr,why};
+}
+function applyMeasures(){
+  const h=+document.getElementById("mH").value||0,w=+document.getElementById("mW").value||0,
+    sh=+document.getElementById("mS").value||0,wa=+document.getElementById("mWa").value||0,hp=+document.getElementById("mHp").value||0;
+  DB.profile.measures={height:h,weight:w,shoulder:sh,waist:wa,hip:hp};
+  const r=deriveShape(h,w,sh,wa,hp);
+  DB.profile.body=r.shape;DB.profile.bodySource="measure";
+  save();renderProfilePicks();renderTip();
+  toast("已推断体型："+r.shape+(r.bmi?"（BMI "+r.bmi+"）":""));
+}
+/* ===== 照片 AI 分析：DeepSeek 视觉识别脸型/体型 ===== */
+async function analyzePhoto(inp,kind){
+  const f=inp.files&&inp.files[0];if(!f)return;
+  if(!getKey())return toast("照片分析需要先在上方填入 DeepSeek API Key");
+  const st=document.getElementById("photoAnalysis");
+  st.textContent="🔍 AI 正在分析照片…（照片仅发送给 DeepSeek 做单次识别，不做存储）";
+  const fr=new FileReader();
+  fr.onload=async()=>{
+    const prompt=kind==="face"
+      ?'你是形象顾问。分析这张正脸照的脸型，只能从 ["圆脸","鹅蛋脸","方脸","心形脸","长脸"] 中选一个。只返回 JSON：{"result":"脸型","detail":"30字内特征描述（颧骨宽度、下巴线条、脸长脸宽比）","advice":"40字内适合的领型、发型与配饰建议"}'
+      :'你是形象顾问。分析这张全身照的体型，只能从 ["梨形","苹果形","沙漏形","直筒形","倒三角"] 中选一个。只返回 JSON：{"result":"体型","detail":"30字内特征描述（肩腰臀比例、腰线位置、腿长比例）","advice":"40字内显高显瘦的穿法建议"}';
+    try{
+      const txt=await dsChat([{role:"user",content:[
+        {type:"image_url",image_url:{url:fr.result}},
+        {type:"text",text:prompt}]}],"deepseek-flash");
+      const o=JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+      if(kind==="face"){DB.profile.face=o.result;DB.profile.faceDetail=o.detail+"。"+o.advice}
+      else{DB.profile.body=o.result;DB.profile.bodySource="photo";DB.profile.bodyDetail=o.detail+"。"+o.advice}
+      save();renderProfilePicks();renderTip();
+      st.innerHTML=`✅ AI 分析完成：<b>${o.result}</b> — ${o.detail}。${o.advice}`;
+    }catch(e){st.textContent="⚠️ 分析失败："+e.message}
+  };
+  fr.readAsDataURL(f);
+}
+/* ===== 传给推荐模型的完整身材档案 ===== */
+function fitProfile(){
+  const m=DB.profile.measures||{},o={};
+  if(m.height)o.身高cm=m.height;if(m.weight)o.体重kg=m.weight;
+  if(m.shoulder)o.肩宽cm=m.shoulder;if(m.waist)o.腰围cm=m.waist;if(m.hip)o.臀围cm=m.hip;
+  if(m.waist&&m.hip)o.腰臀比=(m.waist/m.hip).toFixed(2);
+  if(DB.profile.bodyDetail)o.体型视觉特征=DB.profile.bodyDetail;
+  if(DB.profile.faceDetail)o.脸型视觉特征=DB.profile.faceDetail;
+  return Object.keys(o).length?o:null;
+}
+/* 资讯入库（本地数据库，按日期+场景去重） */
+function addTip(text,src){
+  if(DB.tips[0]&&DB.tips[0].date===today()&&DB.tips[0].scene===curScene&&DB.tips[0].text===text)return;
+  DB.tips.unshift({date:today(),scene:curScene,text,src});DB.tips=DB.tips.slice(0,60);save();
+}
+function renderTip(rand){
+  const s=seasonByWx()[0]==="冬"?"冬":(wxTempLevel()==="hot"?"夏":"春秋");
+  const tips={
+    夏:["高温天选浅色系更凉爽，浅色反射阳光、深色吸热","棉麻材质在闷热天比化纤透气得多，试试棉麻阔腿裤","防晒外套既防紫外线又能在空调房挡凉，一衣两用"],
+    春秋:["早晚温差大，薄外套是春秋最实用的单品","同色系深浅叠穿（米白+燕麦）显高级还不挑人","短外套配高腰下装能拉高腰线，比例立刻好起来"],
+    冬:["内薄外厚的洋葱穿法，进暖气房方便脱","围巾是冬天最便宜的换脸单品，换条围巾=换套搭配","深色大衣内搭亮色，沉闷冬季立刻有精神"],
+  };
+  const bodyTip={"梨形":"梨形身材：选 A 字裙/直筒裤弱化下半身，上半身可加亮点","苹果形":"苹果形身材：V 领拉长脖颈线条，高腰线位置放在胸下","沙漏形":"沙漏形身材：大胆展示腰线，收腰款最能体现优势","直筒形":"直筒形身材：用腰带、束腰外套制造曲线感","倒三角":"倒三角身材：下半身选阔腿/百褶平衡肩宽","":"在「我的」页填写身形后，会有专属身材建议"};
+  const faceTip={"圆脸":"圆脸适合 V 领和大耳环，拉长脸部线条","鹅蛋脸":"鹅蛋脸什么领型都能驾驭，尽情尝试吧","方脸":"方脸适合圆领、弧形项链来柔化棱角","长脸":"长脸适合齐刘海造型感和横向领口","心形脸":"心形脸适合船领和中等大小的耳饰","":"填写脸型后可获得配饰与领型建议"};
+  const t=tips[s],idx=rand!==undefined?rand%t.length:new Date().getDate()%t.length;
+  document.getElementById("dailyTip").textContent=t[idx];
+  addTip(t[idx],"local");
+  document.getElementById("tipWhy").textContent=(DB.profile.body?bodyTip[DB.profile.body]+"。":"")+(DB.profile.face?faceTip[DB.profile.face]+"。":"");
+  if(getKey())aiTip();
+}
+async function aiTip(){
+  if(DB.aiTip&&DB.aiTip.date===today()&&DB.aiTip.scene===curScene){
+    document.getElementById("dailyTip").textContent=DB.aiTip.text;return;
+  }
+  try{
+    const txt=await dsChat([{role:"system",content:"你是穿搭资讯编辑。基于用户身形、脸型、今日天气与场合，输出一句30字内的中文穿搭小建议。只返回 JSON：{\"tip\":\"...\"}"},
+      {role:"user",content:JSON.stringify({天气:wx,场合:curScene,身形:DB.profile.body||"未填",脸型:DB.profile.face||"未填",季节:seasonByWx()[0]})}]);
+    const o=JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+    if(o.tip){DB.aiTip={date:today(),scene:curScene,text:o.tip};addTip(o.tip,"deepseek");
+      document.getElementById("dailyTip").textContent=o.tip;
+      const lt=document.getElementById("libTip");
+      if(lt&&lt.textContent!==undefined&&document.getElementById("v-tips").style.display!=="none"){lt.textContent=o.tip;renderTipLib()}}
+  }catch(e){/* 静默回退本地资讯 */}
+}
+
+/* ================= 加油站：资讯库 + 智能种草 ================= */
+function renderTipsView(){
+  document.getElementById("libTip").textContent=document.getElementById("dailyTip").textContent;
+  renderTipLib();
+  genShopRecs(false);
+}
+function renderTipLib(){
+  const el=document.getElementById("tipLib");
+  el.innerHTML=DB.tips.length?DB.tips.slice(0,20).map(t=>
+    `<div class="insrow"><span style="color:var(--muted);white-space:nowrap">${t.date} · ${t.scene}</span><span style="flex:1;text-align:right;font-size:13px">${t.text} <span class="chip ${t.src==="deepseek"?"b":"g"}">${t.src==="deepseek"?"AI生成":"本地"}</span></span></div>`).join("")
+    :'<div class="empty">资讯库还空着，浏览「今日穿搭」后会自动收集</div>';
+}
+function refreshTip(){
+  if(getKey()){DB.aiTip=null;save();renderTip();
+    setTimeout(()=>{document.getElementById("libTip").textContent=document.getElementById("dailyTip").textContent;renderTipLib()},2500);}
+  else{renderTip(Math.floor(Math.random()*9));
+    document.getElementById("libTip").textContent=document.getElementById("dailyTip").textContent;renderTipLib();}
+}
+function shopGaps(){
+  const g=[];
+  SCENES.forEach(sc=>{const p=DB.items.filter(i=>clean(i)&&i.scenes.includes(sc));
+    if(p.length&&!p.some(i=>i.type==="鞋"))g.push(sc+"缺鞋");
+    if(p.length&&!p.some(i=>i.type==="上衣"||i.type==="连衣裙"))g.push(sc+"缺上装");});
+  return g.length?g:["无明显缺口"];
+}
+function shopFallback(){
+  const s=seasonByWx()[0]==="冬"?"冬季":(wxTempLevel()==="hot"?"夏季":"春秋季");
+  const pref=DB.profile.styles||[];
+  const gaps=shopGaps();
+  return {taobao:[s+" "+curScene+" "+(gaps[0]&&gaps[0]!=="无明显缺口"?gaps[0]:"百搭单品"),s+" "+curScene+" 基础款",s+" "+(pref[0]||"简约")+"风 "+(curScene==="约会"?"连衣裙":"上衣")],
+    xiaohongshu:[s+" "+curScene+"穿搭",s+" "+(pref[0]||"简约")+"风穿搭",DB.profile.body?DB.profile.body+" 穿搭技巧":"显瘦穿搭技巧"],
+    tip:"基于你的衣橱缺口与风格偏好生成的搜索灵感（本地引擎）"};
+}
+async function genShopRecs(force){
+  const el=document.getElementById("shopRecs");
+  const ck=today()+"|"+curScene;
+  if(!force&&DB.shopRecs&&DB.shopRecs.key===ck){renderShopRecs(DB.shopRecs.data);return}
+  el.innerHTML='<div class="empty">🛍 AI 正在分析你的衣橱缺口，挑选灵感关键词…</div>';
+  let data;
+  if(getKey()){
+    try{
+      const sys='你是穿搭买手。根据用户衣橱缺口、季节、场合与风格偏好，生成去淘宝和小红书搜索的关键词。淘宝词偏具体单品（如"秋季通勤 西装外套"），小红书词偏穿搭灵感。只返回JSON：{"taobao":["3个搜索词"],"xiaohongshu":["3个搜索词"],"tip":"20字内推荐语"}';
+      const txt=await dsChat([{role:"system",content:sys},{role:"user",content:JSON.stringify({季节:seasonByWx(),场合:curScene,身形:DB.profile.body||"未填",脸型:DB.profile.face||"未填",风格偏好:DB.profile.styles,衣橱缺口:shopGaps(),衣橱概览:DB.items.map(i=>i.type+"·"+(i.colors||[]).join("/"))})}]);
+      data=JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+      if(!data.taobao||!data.xiaohongshu)data=shopFallback();
+    }catch(e){data=shopFallback()}
+  }else data=shopFallback();
+  DB.shopRecs={key:ck,data};save();renderShopRecs(data);
+}
+function renderShopRecs(d){
+  const mk=(list,type)=>(list||[]).slice(0,3).map(k=>
+    `<button class="sm ghost" style="margin:3px 6px 3px 0" onclick="openShop('${encodeURIComponent(k)}','${type}')">${type==="tb"?"🛒":"📕"} ${k}</button>`).join("");
+  document.getElementById("shopRecs").innerHTML=
+    `<div style="font-size:13px;margin-bottom:8px">${d.tip||""}</div>
+     <div style="font-size:12px;color:var(--muted)">淘宝找同款</div><div style="margin:4px 0">${mk(d.taobao,"tb")}</div>
+     <div style="font-size:12px;color:var(--muted);margin-top:8px">小红书找灵感</div><div style="margin-top:4px">${mk(d.xiaohongshu,"xhs")}</div>`;
+}
+function openShop(kw,type){
+  const url=type==="tb"
+    ?"https://s.taobao.com/search?q="+kw
+    :"https://www.xiaohongshu.com/search_result?keyword="+kw;
+  window.open(url,"_blank");
+}
+
+/* ================= 启动 ================= */
+document.getElementById("dateStr").textContent=today()+" · "+["周日","周一","周二","周三","周四","周五","周六"][new Date().getDay()];
+renderFilters();renderGrid();renderWxSim();renderTip();dsStatusUpdate();
+fetchWeather();
+/* 定时任务：每30分钟自动刷新天气，并联动重新生成 AI 搭配（正式版由后端 cron/云函数执行） */
+setInterval(fetchWeather,30*60*1000);
+/* ---- PWA：离线缓存与安装 ---- */
+if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}
+</script>
+</body>
+</html>
