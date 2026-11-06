@@ -212,10 +212,17 @@ nav button .ic{font-style:normal;transition:transform .2s;display:flex}
       <div class="wxsim" id="wxsim"></div>
       <div style="margin-top:9px;font-size:13px;color:var(--muted)" id="wxLoc">📍 定位中…</div>
       <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
-        <input id="citySearch" placeholder="手动定位城市（如：长沙）" style="flex:1;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit" onkeydown="if(event.key==='Enter')searchCity()">
+        <input id="citySearch" placeholder="搜索城市/县/镇（如：长沙、宁乡、黄花镇）" style="flex:1;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit" onkeydown="if(event.key==='Enter')searchCity()">
         <button class="sm ghost" onclick="searchCity()" style="white-space:nowrap">搜索</button>
         <button class="sm ghost" onclick="clearLoc()" style="white-space:nowrap">自动定位</button>
       </div>
+      <details style="margin-top:6px"><summary style="font-size:12px;color:var(--muted);cursor:pointer">县级精准天气（可选：填入和风天气 Key）</summary>
+        <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
+          <input id="qwKeyInput" placeholder="和风天气 Key（dev.qweather.com 免费申请）" style="flex:1;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:10px;font-size:12px;font-family:inherit">
+          <button class="sm ghost" onclick="saveQwKey()" style="white-space:nowrap">保存</button>
+        </div>
+        <p class="hint" style="margin-top:4px">填了 Key：搜索与天气走和风（国内服务，县区最准）；不填：县级搜索由 DeepSeek 的行政区划知识兜底（需已填上方 AI Key），大城市走 Open-Meteo。</p>
+      </details>
       <p class="hint" style="margin-top:6px" id="wxTip"></p>
     </div>
     <div class="card">
@@ -428,7 +435,7 @@ function tempThresholds(){
 
 let DB=load();
 function load(){
-  try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.items){if(!d.tips)d.tips=[];if(!d.affinity)d.affinity={colors:{},styles:{}};if(!d.schedule)d.schedule={};if(d.wxLoc===undefined)d.wxLoc=null;if(!d.profile)d.profile={};d.profile.measures=d.profile.measures||{};if(d.profile.faceDetail==null)d.profile.faceDetail="";if(d.profile.bodyDetail==null)d.profile.bodyDetail="";if(!d.profile.sens)d.profile.sens="标准";if(!d.wornTags)d.wornTags={};const _tk=today();Object.keys(d.schedule).forEach(k=>{if(k!==_tk)delete d.schedule[k]});Object.keys(d.wornTags).forEach(k=>{if(k!==_tk)delete d.wornTags[k]});d.items.forEach(i=>{if(!i.formality)i.formality=i.type==="鞋"&&i.name.includes("运动")?"运动":"日常"});return d;}}catch(e){}
+  try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.items){if(!d.tips)d.tips=[];if(!d.affinity)d.affinity={colors:{},styles:{}};if(!d.schedule)d.schedule={};if(d.wxLoc===undefined)d.wxLoc=null;if(d.wxKey===undefined)d.wxKey="";if(!d.profile)d.profile={};d.profile.measures=d.profile.measures||{};if(d.profile.faceDetail==null)d.profile.faceDetail="";if(d.profile.bodyDetail==null)d.profile.bodyDetail="";if(!d.profile.sens)d.profile.sens="标准";if(!d.wornTags)d.wornTags={};const _tk=today();Object.keys(d.schedule).forEach(k=>{if(k!==_tk)delete d.schedule[k]});Object.keys(d.wornTags).forEach(k=>{if(k!==_tk)delete d.wornTags[k]});d.items.forEach(i=>{if(!i.formality)i.formality=i.type==="鞋"&&i.name.includes("运动")?"运动":"日常"});return d;}}catch(e){}
   return seed();
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(DB))}catch(e){toast("存储空间不足，图片过多")}}
@@ -449,7 +456,7 @@ function seed(){
   items.forEach((it,i)=>it.no=String(i+1).padStart(3,"0"));
   items[4].wearCount=2; items[1].wearCount=1;
   return {items,profile:{body:"",face:"",styles:[],measures:{},faceDetail:"",bodyDetail:""},log:[],outfitCount:0,
-    affinity:{colors:{},styles:{}},tips:[],schedule:{},wornTags:{},wxLoc:null,shopRecs:null,aiTip:null};
+    affinity:{colors:{},styles:{}},tips:[],schedule:{},wornTags:{},wxLoc:null,wxKey:"",shopRecs:null,aiTip:null};
 }
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),1800)}
 function aff(kind,key,val){
@@ -875,26 +882,55 @@ function renderWxSim(){
 }
 /* 定位三级策略：手动城市 > 浏览器 GPS > IP 兜底（城市名显示用 reverse geocoding） */
 let wxLoc=DB.wxLoc||null; /* {name,latitude,longitude,src} */
+function wxFail(msg){
+  document.getElementById("wxSrc").textContent="来源：获取失败";
+  document.getElementById("wxLoc").textContent="⚠️ "+msg+"（可点「🔄 立即刷新」重试，或下方手动搜索城市）";
+}
 async function loadWxAt(la,lo,cityName,src){
-  const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m,apparent_temperature,weather_code,precipitation,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1`);
-  const j=await r.json(),c=j.current,dy=j.daily||{};
-  const codes={0:"晴",1:"多云",2:"多云",3:"阴",45:"雾",51:"小雨",61:"雨",63:"雨",65:"大雨",71:"雪",80:"阵雨"};
-  wx={temp:Math.round(c.temperature_2m),desc:codes[c.weather_code]||"多云",
-    rain:(c.precipitation||0)>0.2,wind:Math.round(c.wind_speed_10m),src:src,
-    feels:Math.round(c.apparent_temperature!=null?c.apparent_temperature:c.temperature_2m),
-    tmax:dy.temperature_2m_max?Math.round(dy.temperature_2m_max[0]):null,
-    tmin:dy.temperature_2m_min?Math.round(dy.temperature_2m_min[0]):null,
-    pop:dy.precipitation_probability_max?(dy.precipitation_probability_max[0]||0):0,
-    city:cityName||wx.city,lastUp:new Date().toTimeString().slice(0,5)};
-  renderWxSim();
+  /* 和风路径：手动选择的城市带 qwId 且填了 Key → 和风县级实时+3日预报 */
+  if(DB.wxKey&&wxLoc&&wxLoc.qwId){
+    try{
+      const kn=DB.wxKey;
+      const [rn,rd]=await Promise.all([
+        fetch(`https://devapi.qweather.com/v7/weather/now?location=${wxLoc.qwId}&key=${kn}&lang=zh`).then(r=>r.json()),
+        fetch(`https://devapi.qweather.com/v7/weather/3d?location=${wxLoc.qwId}&key=${kn}&lang=zh`).then(r=>r.json())
+      ]);
+      if(rn.code==="200"&&rn.now){
+        const n=rn.now,d=(rd.code==="200"&&rd.daily)?rd.daily[0]:{};
+        wx={temp:Math.round(+n.temp),desc:n.text,rain:(+n.precip||0)>0||(d.text||"").includes("雨")||(d.text||"").includes("雪"),
+          wind:Math.round(+n.windSpeed||0),src:src,feels:Math.round(+n.feelsLike||n.temp),
+          tmax:d.tempMax!=null?Math.round(+d.tempMax):null,tmin:d.tempMin!=null?Math.round(+d.tempMin):null,
+          pop:d.precipProb?+d.precipProb:0,city:cityName||wx.city,lastUp:new Date().toTimeString().slice(0,5)};
+        renderWxSim();return;
+      }
+      if(rn.code==="402")throw new Error("和风 Key 配额不足，请改用免费重试或清空 Key");
+      if(rn.code==="401")throw new Error("和风 Key 无效，请检查或清空");
+      throw new Error("和风返回异常（代码 "+rn.code+"）");
+    }catch(e){wxFail("天气获取失败："+e.message)}
+  }
+  /* Open-Meteo 路径：免 Key，全球任意坐标 */
+  try{
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m,apparent_temperature,weather_code,precipitation,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1`);
+    const j=await r.json(),c=j.current,dy=j.daily||{};
+    if(!c)throw new Error("Open-Meteo 返回异常");
+    const codes={0:"晴",1:"多云",2:"多云",3:"阴",45:"雾",48:"雾",51:"小雨",53:"小雨",55:"小雨",61:"雨",63:"雨",65:"大雨",66:"冻雨",67:"冻雨",71:"小雪",73:"雪",75:"大雪",77:"雪",80:"阵雨",81:"阵雨",82:"大雨",85:"阵雪",86:"阵雪",95:"雷雨",96:"雷雨",99:"雷雨"};
+    wx={temp:Math.round(c.temperature_2m),desc:codes[c.weather_code]||"多云",
+      rain:(c.precipitation||0)>0.2,wind:Math.round(c.wind_speed_10m),src:src,
+      feels:Math.round(c.apparent_temperature!=null?c.apparent_temperature:c.temperature_2m),
+      tmax:dy.temperature_2m_max?Math.round(dy.temperature_2m_max[0]):null,
+      tmin:dy.temperature_2m_min?Math.round(dy.temperature_2m_min[0]):null,
+      pop:dy.precipitation_probability_max?(dy.precipitation_probability_max[0]||0):0,
+      city:cityName||wx.city,lastUp:new Date().toTimeString().slice(0,5)};
+    renderWxSim();
+  }catch(e){wxFail("天气获取失败："+e.message)}
 }
 async function reverseCity(la,lo){
   try{const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${la}&longitude=${lo}&localityLanguage=zh`);
     const j=await r.json();return j.city||j.locality||j.principalSubdivision||"";}catch(e){return ""}
 }
 async function fetchWeather(){
-  /* 优先级1：用户手动选择的城市 */
-  if(wxLoc){try{await loadWxAt(wxLoc.latitude,wxLoc.longitude,wxLoc.name,"Open-Meteo · 手动城市 "+wxLoc.name);return}catch(e){}}
+  /* 优先级1：用户手动选择的城市（loadWxAt 内部自带失败提示，不再静默） */
+  if(wxLoc){await loadWxAt(wxLoc.latitude,wxLoc.longitude,wxLoc.name,wxLoc.qwId&&DB.wxKey?"和风天气 · "+wxLoc.name:"Open-Meteo · 手动城市 "+wxLoc.name);return}
   /* 优先级2：浏览器 GPS 定位 */
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(async pos=>{
@@ -920,7 +956,7 @@ async function ipFallback(){
       if(j.status==="success"&&j.lat){await loadWxAt(j.lat,j.lon,j.city,"Open-Meteo · IP 定位 · "+(j.city||""));return}
     }
   }catch(e){}
-  document.getElementById("wxLoc").textContent="📍 自动定位不可用，请在下方输入城市名";
+  document.getElementById("wxLoc").textContent="📍 自动定位不可用，请在下方输入城市名";wxFail("GPS 与 IP 定位均未成功");
 }
 /* 中国主要城市离线表：手动定位优先本地精确匹配（Open-Meteo 中文地理编码缺大城市数据，如「长沙」只能搜到同名小镇） */
 const CITY_DB={"北京":[39.90,116.41],"上海":[31.23,121.47],"天津":[39.13,117.20],"重庆":[29.56,106.55],
@@ -937,30 +973,83 @@ const CITY_DB={"北京":[39.90,116.41],"上海":[31.23,121.47],"天津":[39.13,1
 "唐山":[39.63,118.18],"呼和浩特":[40.84,111.75],"哈尔滨":[45.80,126.53],"长春":[43.88,125.32],"沈阳":[41.80,123.43],"大连":[38.91,121.61],
 "兰州":[36.06,103.83],"西宁":[36.62,101.78],"银川":[38.49,106.23],"乌鲁木齐":[43.83,87.62],"拉萨":[29.65,91.14],"赣州":[25.83,114.93],
 "香港":[22.32,114.17],"澳门":[22.20,113.55],"台北":[25.03,121.57]};
-function useCity(name,la,lo){
-  wxLoc={name,latitude:la,longitude:lo,src:"手动"};
+function useCity(name,la,lo,qwId){
+  wxLoc={name,latitude:la,longitude:lo,src:"手动",qwId:qwId||null};
   DB.wxLoc=wxLoc;save();
-  loadWxAt(la,lo,name,"Open-Meteo · 手动城市 "+name);
+  loadWxAt(la,lo,name,qwId?"和风天气 · "+name:"Open-Meteo · 手动城市 "+name);
   toast("已切换到 "+name+" 的实时天气");
+}
+function saveQwKey(){
+  DB.wxKey=document.getElementById("qwKeyInput").value.trim();save();
+  toast(DB.wxKey?"✅ 和风 Key 已保存，搜索将优先走和风县级数据":"已清除和风 Key");
+}
+/* 地理编码缓存（借鉴 wardrowbe：地名→坐标 30 天缓存，避免重复请求） */
+function geoCacheGet(q){
+  try{const c=JSON.parse(localStorage.getItem("geoCache")||"{}");const h=c[q];
+    if(h&&Date.now()-h.ts<30*864e5)return h}catch(e){}
+  return null;
+}
+function geoCacheSet(q,lat,lon,name,qwId){
+  try{const c=JSON.parse(localStorage.getItem("geoCache")||"{}");
+    c[q]=Object.assign({lat,lon,name,qwId:qwId||null,ts:Date.now()});
+    const ks=Object.keys(c);if(ks.length>60)delete c[ks[0]];
+    localStorage.setItem("geoCache",JSON.stringify(c))}catch(e){}
+}
+async function aiGeocode(q){
+  /* AI 编码兜底：仅当其他编码服务都搜不到时调用（需已填 DeepSeek Key） */
+  if(!getKey())return null;
+  try{
+    const txt=await dsChat([{role:"user",content:`你是中国行政区划数据库。请给出「${q}」的经纬度坐标（若为乡镇/县区给出政府驻地坐标）。只返回 JSON：{"name":"规范中文全名","lat":纬度数字,"lon":经度数字}。若确实不存在该地名，返回 {"error":1}`}],"deepseek-chat",120);
+    const o=parseLooseJSON(txt);
+    if(o&&!o.error&&typeof o.lat==="number"&&typeof o.lon==="number"&&o.lat>15&&o.lat<55&&o.lon>72&&o.lon<136)return o;
+  }catch(e){}
+  return null;
+}
+async function qwLookup(q){
+  /* 和风城市查询：县区级命中率最高（需 Key），返回 {name,lat,lon,id} */
+  if(!DB.wxKey)return null;
+  try{
+    const r=await fetch(`https://geoapi.qweather.com/v2/city/lookup?location=${encodeURIComponent(q)}&key=${DB.wxKey}&number=5&lang=zh`,{signal:AbortSignal.timeout(8000)});
+    const j=await r.json();
+    if(j.status==="200"&&j.location&&j.location.length){
+      const c=j.location[0];
+      return {name:c.name+(c.adm2&&c.adm2!==c.name&&c.adm1!==c.adm2?" · "+c.adm2:""),lat:+c.lat,lon:+c.lon,id:c.id};
+    }
+  }catch(e){}
+  return null;
 }
 async function searchCity(){
   const q0=document.getElementById("citySearch").value.trim();
   if(!q0)return toast("请输入城市名");
-  const q=q0.replace(/(市|省|特别行政区)$/,"");
-  /* 1) 本地城市表：精确匹配，零延迟且结果可靠 */
-  if(CITY_DB[q]){useCity(q,CITY_DB[q][0],CITY_DB[q][1]);return}
-  /* 2) 兜底：在线地理编码，按人口排序并优先行政中心 */
+  const q=q0.replace(/(市|省|特别行政区|自治区)$/,"");
+  document.getElementById("wxLoc").textContent="📍 正在搜索「"+q0+"」…";
+  /* 1) 编码缓存：搜过的地名直接出结果（30天有效） */
+  const hit=geoCacheGet(q);
+  if(hit){useCity(hit.name,hit.lat,hit.lon,hit.qwId);return}
+  /* 2) 本地城市表：精确匹配，零延迟且结果可靠 */
+  if(CITY_DB[q]){geoCacheSet(q,CITY_DB[q][0],CITY_DB[q][1],q);useCity(q,CITY_DB[q][0],CITY_DB[q][1]);return}
+  /* 3) 和风地理编码（有 Key 时）：国内服务，中国县区一级最准 */
+  const qw=await qwLookup(q);
+  if(qw){geoCacheSet(q,qw.lat,qw.lon,qw.name,qw.id);useCity(qw.name,qw.lat,qw.lon,qw.id);return}
+  /* 4) AI 编码（DeepSeek）：Nominatim 等海外编码服务在国内网络不可达（实测超时），
+     而开放天气对国内县镇同名误命中率高（宁乡→河北乡镇、黄花镇→北京村），
+     所以县级搜索由 DeepSeek 的行政区划知识兜底 */
+  const ai=await aiGeocode(q);
+  if(ai){geoCacheSet(q,ai.lat,ai.lon,ai.name);useCity(ai.name,ai.lat,ai.lon);return}
+  /* 5) Open-Meteo 在线编码保底（大城市可用，县镇可能同名误命中） */
   try{
-    const r=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=10&language=zh&format=json`);
+    const r=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=10&language=zh&format=json`,{signal:AbortSignal.timeout(8000)});
     const j=await r.json();
     if(j.results&&j.results.length){
       const sc=r=>(r.population||0)+(r.feature_code==="PPLA"?5e8:r.feature_code==="PPLA2"?1e8:r.feature_code==="PPLA3"?5e7:0);
       const c=[...j.results].sort((a,b)=>sc(b)-sc(a))[0];
-      useCity(c.name+(c.admin1&&c.admin1!==c.name?" · "+c.admin1:""),c.latitude,c.longitude);
+      const nm=c.name+(c.admin1&&c.admin1!==c.name?" · "+c.admin1:"");
+      geoCacheSet(q,c.latitude,c.longitude,nm);
+      useCity(nm,c.latitude,c.longitude);
       return;
     }
-    toast("没找到「"+q0+"」，可试试就近的大城市");
-  }catch(e){toast("城市搜索失败："+e.message)}
+  }catch(e){}
+  document.getElementById("wxLoc").textContent="⚠️ 没找到「"+q0+"」。县/镇建议填和风 Key 或 DeepSeek Key 提升命中率";
 }
 function clearLoc(){
   wxLoc=null;DB.wxLoc=null;save();
@@ -1550,6 +1639,7 @@ function openShop(kw,type){
 /* ================= 启动 ================= */
 document.getElementById("dateStr").textContent=today()+" · "+["周日","周一","周二","周三","周四","周五","周六"][new Date().getDay()];
 renderFilters();renderGrid();renderWxSim();renderTip();dsStatusUpdate();
+document.getElementById("qwKeyInput").value=DB.wxKey||"";
 fetchWeather();
 /* 定时任务：每30分钟自动刷新天气，并联动重新生成 AI 搭配（正式版由后端 cron/云函数执行） */
 setInterval(fetchWeather,30*60*1000);
