@@ -288,9 +288,23 @@ nav button .ic{font-style:normal;transition:transform .2s;display:flex}
       <p class="hint" id="dsStatus" style="margin-top:6px"></p>
     </div>
     <div class="card">
+      <h3>云端同步 · GitHub Gist（跨浏览器/换手机）</h3>
+      <p class="hint">衣物数据只存在当前浏览器里，换浏览器不会自动带过去。填入 GitHub 个人访问令牌（github.com/settings/tokens → Generate new token (classic) → 仅勾选 gist 权限），即可把整个衣橱加密备份到您自己的私密 Gist，任何设备上粘贴同一令牌即可一键恢复。数据用您的密码 AES-256 加密后才上传。</p>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="ghToken" type="password" placeholder="ghp_...（仅需 gist 权限）" style="flex:1;padding:8px 11px;border:1px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit">
+        <button class="sm" onclick="saveGhToken()">保存</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="sm" style="flex:1" onclick="gistUp()">⬆️ 备份到云端</button>
+        <button class="sm ghost" style="flex:1" onclick="gistDown()">⬇️ 从云端恢复</button>
+      </div>
+      <p class="hint" id="gistStatus" style="margin-top:6px"></p>
+    </div>
+    <div class="card">
       <h3>AI 已学到你的偏好</h3>
+      <p class="hint" id="prefMem" style="margin-bottom:8px">打卡穿搭后，AI 会自动总结您的偏好画像</p>
       <div id="learned"></div>
-      <p class="hint">每次给搭配点 👍/👎，AI 都会记住你喜欢和讨厌的颜色、风格组合</p>
+      <p class="hint">每次给搭配点 👍/👎，AI 都会记住你喜欢和讨厌的颜色、风格组合；每天 AI 还会把穿着日志蒸馏成偏好画像，注入后续推荐</p>
     </div>
     <div class="card">
       <h3>衣橱洞察</h3>
@@ -436,7 +450,7 @@ function tempThresholds(){
 
 let DB=load();
 function load(){
-  try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.items){if(!d.tips)d.tips=[];if(!d.affinity)d.affinity={colors:{},styles:{}};if(!d.schedule)d.schedule={};if(d.wxLoc===undefined)d.wxLoc=null;if(d.wxKey===undefined)d.wxKey="";if(!d.profile)d.profile={};d.profile.measures=d.profile.measures||{};if(d.profile.faceDetail==null)d.profile.faceDetail="";if(d.profile.bodyDetail==null)d.profile.bodyDetail="";if(!d.profile.sens)d.profile.sens="标准";if(!d.wornTags)d.wornTags={};const _tk=today();Object.keys(d.schedule).forEach(k=>{if(k!==_tk)delete d.schedule[k]});Object.keys(d.wornTags).forEach(k=>{if(k!==_tk)delete d.wornTags[k]});d.items.forEach(i=>{if(!i.formality)i.formality=i.type==="鞋"&&i.name.includes("运动")?"运动":"日常"});return d;}}catch(e){}
+  try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.items){if(!d.tips)d.tips=[];if(!d.affinity)d.affinity={colors:{},styles:{}};if(!d.schedule)d.schedule={};if(d.wxLoc===undefined)d.wxLoc=null;if(d.wxKey===undefined)d.wxKey="";if(d.prefMem===undefined)d.prefMem=null;if(d.ghToken===undefined)d.ghToken="";if(d.gistId===undefined)d.gistId="";if(!d.profile)d.profile={};d.profile.measures=d.profile.measures||{};if(d.profile.faceDetail==null)d.profile.faceDetail="";if(d.profile.bodyDetail==null)d.profile.bodyDetail="";if(!d.profile.sens)d.profile.sens="标准";if(!d.wornTags)d.wornTags={};const _tk=today();Object.keys(d.schedule).forEach(k=>{if(k!==_tk)delete d.schedule[k]});Object.keys(d.wornTags).forEach(k=>{if(k!==_tk)delete d.wornTags[k]});d.items.forEach(i=>{if(!i.formality)i.formality=i.type==="鞋"&&i.name.includes("运动")?"运动":"日常"});return d;}}catch(e){}
   return seed();
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(DB))}catch(e){toast("存储空间不足，图片过多")}}
@@ -457,7 +471,7 @@ function seed(){
   items.forEach((it,i)=>it.no=String(i+1).padStart(3,"0"));
   items[4].wearCount=2; items[1].wearCount=1;
   return {items,profile:{body:"",face:"",styles:[],measures:{},faceDetail:"",bodyDetail:""},log:[],outfitCount:0,
-    affinity:{colors:{},styles:{}},tips:[],schedule:{},wornTags:{},wxLoc:null,wxKey:"",shopRecs:null,aiTip:null};
+    affinity:{colors:{},styles:{}},tips:[],schedule:{},wornTags:{},wxLoc:null,wxKey:"",shopRecs:null,aiTip:null,prefMem:null,ghToken:"",gistId:""};
 }
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),1800)}
 function aff(kind,key,val){
@@ -1310,7 +1324,7 @@ async function aiOutfitPlanFor(scene,secTime){
 只返回 JSON：{"outfits":[{"items":["id"],"headline":"5字内造型标题","reason":"40字内搭配理由（每次换角度：色彩/材质/廓形/场合/天气/时段轮着讲）","fit":"40字内说明这套如何修饰用户的身形脸型（无档案则给通用显高显瘦逻辑）","tip":"一条具体可执行的穿法细节（塞衣角/挽袖/叠戴/换腰带位等，每次换说法）","score":0-100}]}`;
   const user=JSON.stringify({天气:wx,场合:scene,时段:timeHint,身形:DB.profile.body||"未填",脸型:DB.profile.face||"未填",
     身材档案:fitProfile()||"未提供",温度敏感度:DB.profile.sens||"标准",
-    风格偏好:DB.profile.styles,历史反馈画像:DB.affinity,昨日已穿:yesterdayNames(),
+    风格偏好:DB.profile.styles,历史反馈画像:DB.affinity,偏好记忆:(DB.prefMem&&DB.prefMem.text)||"暂无",昨日已穿:yesterdayNames(),
     衣橱按匹配度排序:wardrobeBrief(scene)});
   try{
     const txt=await dsChat([{role:"system",content:sys},{role:"user",content:user}],null,1100,0.7);
@@ -1325,6 +1339,8 @@ async function aiOutfitPlanFor(scene,secTime){
         score:{...local,total:Math.min(98,Math.max(60,it.score||local.total)),ai:true},
         reason:it.reason,fit:it.fit,tip:it.tip});
     }
+    /* 造型总监自检：按身形/脸型/配色/天气规则审查修正一次（失败静默回退原方案） */
+    if(plans.length&&getKey()){const fixed=await criticPlans(plans,scene);if(fixed)return fixed}
     return plans.length?plans:null;
   }catch(e){
     document.getElementById("dsStatus").textContent="⚠️ DeepSeek 调用失败："+e.message+"，已回退本地引擎";
@@ -1426,6 +1442,7 @@ function renderWash(){
 /* ================= 我的：学习画像 + 洞察 ================= */
 function renderMe(){
   document.getElementById("stWorn").textContent=DB.log.length;
+  renderPrefMem();
   document.getElementById("stOutfits").textContent=DB.outfitCount;
   const learned=document.getElementById("learned");
   const likeC=Object.entries(DB.affinity.colors).filter(([k,v])=>v>0.3);
@@ -1571,14 +1588,124 @@ async function aiTip(){
     document.getElementById("dailyTip").textContent=DB.aiTip.text;return;
   }
   try{
-    const txt=await dsChat([{role:"system",content:"你是穿搭资讯编辑。基于用户身形、脸型、今日天气与场合，输出一句30字内的中文穿搭小建议。只返回 JSON：{\"tip\":\"...\"}"},
-      {role:"user",content:JSON.stringify({天气:wx,场合:curScene,身形:DB.profile.body||"未填",脸型:DB.profile.face||"未填",季节:seasonByWx()[0]})}]);
+    /* 行动化资讯：结合天气、衣橱缺口、穿着统计与偏好记忆，输出"怎么穿/该添置什么" */
+    const gaps=[];SCENES.forEach(sc=>{const p=DB.items.filter(i=>clean(i)&&i.scenes.includes(sc));
+      if(p.length&&!p.some(i=>i.type==="鞋"))gaps.push(sc+"缺鞋");
+      if(p.length&&!p.some(i=>i.type==="上衣"||i.type==="连衣裙"))gaps.push(sc+"缺上装")});
+    const top=[...DB.items].filter(i=>i.wearCount>0).sort((a,b)=>b.wearCount-a.wearCount).slice(0,2).map(i=>i.name);
+    const idle=DB.items.filter(i=>i.wearCount===0).slice(0,2).map(i=>i.name);
+    const txt=await dsChat([{role:"system",content:"你是私人穿搭顾问。结合今日天气、场合、身形脸型、衣橱缺口与穿着统计，给出一条35字内的中文行动建议：优先教今天具体怎么穿（结合天气与待激活衣物），衣橱有明显缺口时改为建议该添置什么。只返回 JSON：{\"tip\":\"...\"}"},
+      {role:"user",content:JSON.stringify({天气:wx,场合:curScene,身形:DB.profile.body||"未填",脸型:DB.profile.face||"未填",季节:seasonByWx()[0],衣橱缺口:gaps,最常穿:top,待激活:idle,偏好记忆:(DB.prefMem&&DB.prefMem.text)||""})}],null,250,0.7);
     const o=parseLooseJSON(txt);
     if(o.tip){DB.aiTip={date:today(),scene:curScene,text:o.tip};addTip(o.tip,"deepseek");
       document.getElementById("dailyTip").textContent=o.tip;
       const lt=document.getElementById("libTip");
       if(lt&&lt.textContent!==undefined&&document.getElementById("v-tips").style.display!=="none"){lt.textContent=o.tip;renderTipLib()}}
   }catch(e){/* 静默回退本地资讯 */}
+}
+
+/* ================= 智能增强：造型总监自检 + 偏好记忆蒸馏 ================= */
+async function criticPlans(plans,scene){
+  /* 第二次低成本调用：审查修正，把"说道理"变成"按道理改"。任何失败静默回退原方案 */
+  try{
+    const brief=plans.map((p,i)=>({方案:i+1,headline:p.headline,items:p.set.map(x=>x.name+"（"+x.type+"·"+((x.colors||[]).join("/"))+"·"+x.formality+"）"),reason:p.reason,fit:p.fit,tip:p.tip}));
+    const sys='你是挑剔的造型总监，按以下规则审查修正搭配方案：①非中性色超过3个或撞色刺眼→换件；②上下同为宽松版型→改一边；③与身形/脸型规则冲突（梨形/圆脸等见档案）→必须修正；④正式度不符场合→调整单品；⑤天气不合适（高温穿厚卫衣、雨天浅色鞋）→替换。只修正有问题的方案，没问题的原样保留。只返回 JSON：{"outfits":[{"items":["原始衣物名"],"headline":..,"reason":..,"fit":..,"tip":..,"score":0-100}]}（items 用衣物原名，保持与输入一致）';
+    const txt=await dsChat([{role:"system",content:sys},{role:"user",content:JSON.stringify({场合:scene,天气:wx,身形:DB.profile.body||"未填",脸型:DB.profile.face||"未填",偏好记忆:(DB.prefMem&&DB.prefMem.text)||"",方案:brief})}],null,800,0.3);
+    const o=parseLooseJSON(txt);
+    if(!o.outfits||!o.outfits.length)return null;
+    const fixed=[];
+    for(let k=0;k<Math.min(3,o.outfits.length);k++){
+      const it=o.outfits[k],src=plans[k];if(!src)continue;
+      let set=(it.items||src.set.map(x=>x.name)).map(n=>DB.items.find(x=>x.id===n)||DB.items.find(x=>x.name===n)).filter(Boolean);
+      if(set.length<2||!set.some(i=>i.type==="上衣"||i.type==="连衣裙"))set=src.set; /* AI 报错名称时保底原方案 */
+      const local=scoreSet(set);
+      fixed.push({key:set.map(i=>i.id).sort().join(","),set,
+        headline:it.headline||src.headline,
+        score:{...local,total:Math.min(98,Math.max(60,it.score||src.score.total)),ai:true},
+        reason:it.reason||src.reason,fit:it.fit||src.fit,tip:it.tip||src.tip});
+    }
+    return fixed.length?fixed:null;
+  }catch(e){return null}
+}
+let distilling=false;
+async function distillMemory(){
+  /* 偏好记忆档案：每天首次把近30天穿着日志蒸馏成60字画像，注入后续所有推荐 */
+  if(!getKey()||!DB.log.length||distilling)return;
+  if(DB.prefMem&&DB.prefMem.date===today())return;
+  distilling=true;
+  try{
+    const txt=await dsChat([{role:"system",content:"你是穿搭偏好分析师。根据用户近30天的穿着记录，蒸馏出60字内偏好画像：偏爱什么颜色/风格/正式度、回避什么、有哪些规律（如周五偏正式、雨天总穿某鞋）。只返回 JSON：{\"text\":\"...\"}"},
+      {role:"user",content:JSON.stringify(DB.log.slice(0,14).map(e=>({日期:e.date,场合:e.scene,天气:e.wx,穿了:e.items})))}],null,220,0.4);
+    const o=parseLooseJSON(txt);
+    if(o.text){DB.prefMem={date:today(),text:o.text};save();}
+  }catch(e){/* 静默：画像失败不影响主流程 */}
+  distilling=false;
+}
+function renderPrefMem(){
+  const el=document.getElementById("prefMem");
+  if(!el)return;
+  el.innerHTML=DB.prefMem
+    ?`✅ 画像更新于 ${DB.prefMem.date}：<b>${DB.prefMem.text}</b>`
+    :"浏览/打卡穿搭后，AI 会自动总结您的偏好画像（需已填 DeepSeek Key）";
+}
+/* ================= 云端同步（GitHub Gist · AES 加密备份） ================= */
+function saveGhToken(){DB.ghToken=document.getElementById("ghToken").value.trim();save();toast(DB.ghToken?"✅ 令牌已保存（仅存本浏览器）":"已清除令牌")}
+async function encData(plain,pass){
+  const ks=await crypto.subtle.importKey("raw",new TextEncoder().encode(pass),{name:"PBKDF2"},false,["deriveKey"]);
+  const key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:new TextEncoder().encode("ai-wardrobe-salt-v1"),iterations:100000,hash:"SHA-256"},ks,{name:"AES-GCM",length:256},false,["encrypt"]);
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(plain));
+  const b64=b=>btoa(String.fromCharCode(...new Uint8Array(b)));
+  return "AW1|"+b64(iv)+"|"+b64(ct);
+}
+async function decData(blob,pass){
+  const p=blob.split("|");if(p[0]!=="AW1")throw new Error("备份格式不对");
+  const u8=s=>new Uint8Array([...atob(s)].map(c=>c.charCodeAt(0)));
+  const ks=await crypto.subtle.importKey("raw",new TextEncoder().encode(pass),{name:"PBKDF2"},false,["deriveKey"]);
+  const key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:new TextEncoder().encode("ai-wardrobe-salt-v1"),iterations:100000,hash:"SHA-256"},ks,{name:"AES-GCM",length:256},false,["decrypt"]);
+  return new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:u8(p[1])},key,u8(p[2])));
+}
+async function gistUp(){
+  const el=document.getElementById("gistStatus");
+  if(!DB.ghToken)return toast("请先填 GitHub 令牌");
+  const pass=prompt("设置备份密码（恢复时需输入同一密码，请牢记）");if(!pass)return;
+  el.textContent="⏳ 正在打包加密上传…";
+  try{
+    let data=JSON.stringify(DB),stripped=false;
+    if(data.length>900000){ /* Gist 单文件限制约 1MB：超限时剥离照片原图（标签/记录全保留） */
+      const copy=JSON.parse(JSON.stringify(DB));copy.items.forEach(i=>{delete i.photo});data=JSON.stringify(copy);stripped=true;
+    }
+    const content=await encData(data,pass);
+    const body=DB.gistId?{files:{"ai-wardrobe-backup.txt":{content}}}
+      :{description:"AI Wardrobe encrypted backup",public:false,files:{"ai-wardrobe-backup.txt":{content}}};
+    const r=await fetch(DB.gistId?"https://api.github.com/gists/"+DB.gistId:"https://api.github.com/gists",{
+      method:DB.gistId?"PATCH":"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+DB.ghToken},
+      body:JSON.stringify(body)});
+    if(!r.ok)throw new Error("HTTP "+r.status+(r.status===401?"（令牌无效或未勾选 gist 权限）":r.status===403?"（超速率限制，稍后再试）":""));
+    const j=await r.json();
+    DB.gistId=j.id;save();
+    el.textContent="✅ 已备份 "+(stripped?"（衣物照片过大未含，全部标签/记录已含）":"")+"· "+new Date().toLocaleTimeString();
+  }catch(e){el.textContent="⚠️ 备份失败："+e.message}
+}
+async function gistDown(){
+  const el=document.getElementById("gistStatus");
+  if(!DB.ghToken)return toast("请先填 GitHub 令牌");
+  if(!DB.gistId)return toast("还没有云端备份，请先「备份到云端」");
+  const pass=prompt("输入备份密码");if(pass==null)return;
+  el.textContent="⏳ 正在拉取云端备份…";
+  try{
+    const r=await fetch("https://api.github.com/gists/"+DB.gistId,{headers:{"Authorization":"Bearer "+DB.ghToken}});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const j=await r.json();
+    const f=j.files&&j.files["ai-wardrobe-backup.txt"];
+    if(!f)throw new Error("备份文件不存在");
+    const data=JSON.parse(await decData(f.content,pass));
+    if(!data.items)throw new Error("数据校验失败（密码错误？）");
+    if(!confirm("云端备份包含 "+data.items.length+" 件衣物，将覆盖本浏览器当前全部数据。继续恢复？")){el.textContent="已取消恢复";return}
+    localStorage.setItem(KEY,JSON.stringify(data));
+    location.reload();
+  }catch(e){el.textContent="⚠️ 恢复失败："+e.message}
 }
 
 /* ================= 加油站：资讯库 + 智能种草 ================= */
@@ -1649,6 +1776,8 @@ function openShop(kw,type){
 document.getElementById("dateStr").textContent=today()+" · "+["周日","周一","周二","周三","周四","周五","周六"][new Date().getDay()];
 renderFilters();renderGrid();renderWxSim();renderTip();dsStatusUpdate();
 document.getElementById("qwKeyInput").value=DB.wxKey||"";
+document.getElementById("ghToken").value=DB.ghToken||"";
+if(getKey()&&DB.log.length)distillMemory();
 fetchWeather();
 /* 定时任务：每30分钟自动刷新天气，并联动重新生成 AI 搭配（正式版由后端 cron/云函数执行） */
 setInterval(fetchWeather,30*60*1000);
